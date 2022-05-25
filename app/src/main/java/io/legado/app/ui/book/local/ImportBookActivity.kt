@@ -6,8 +6,10 @@ import android.os.Build
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
+import android.view.View
 import androidx.activity.viewModels
 import androidx.appcompat.widget.PopupMenu
+import androidx.core.view.isVisible
 import androidx.documentfile.provider.DocumentFile
 import androidx.recyclerview.widget.LinearLayoutManager
 import io.legado.app.R
@@ -22,6 +24,7 @@ import io.legado.app.lib.permission.Permissions
 import io.legado.app.lib.permission.PermissionsCompat
 import io.legado.app.lib.theme.backgroundColor
 import io.legado.app.ui.document.HandleFileContract
+import io.legado.app.ui.widget.SearchView
 import io.legado.app.ui.widget.SelectActionBar
 import io.legado.app.utils.*
 import io.legado.app.utils.viewbindingdelegate.viewBinding
@@ -45,6 +48,10 @@ class ImportBookActivity : VMBaseActivity<ActivityImportBookBinding, ImportBookV
     private val subDocs = arrayListOf<FileDoc>()
     private val adapter by lazy { ImportBookAdapter(this, this) }
     private var scanDocJob: Job? = null
+    private val searchView: SearchView by lazy {
+        binding.titleBar.findViewById(R.id.search_view)
+    }
+    private var menuItem: MenuItem? = null
 
     private val selectFolder = registerForActivityResult(HandleFileContract()) {
         it.uri?.let { uri ->
@@ -84,8 +91,18 @@ class ImportBookActivity : VMBaseActivity<ActivityImportBookBinding, ImportBookV
             R.id.menu_sort_name -> upSort(0)
             R.id.menu_sort_size -> upSort(1)
             R.id.menu_sort_time -> upSort(2)
+            R.id.menu_search -> {
+                menuItem = item
+                item.isVisible = false
+                searchClick()
+            }
         }
         return super.onCompatOptionsItemSelected(item)
+    }
+
+    private fun searchClick() {
+        searchView.visibility = View.VISIBLE
+        searchView.performClick()
     }
 
     override fun onMenuItemClick(item: MenuItem?): Boolean {
@@ -121,12 +138,35 @@ class ImportBookActivity : VMBaseActivity<ActivityImportBookBinding, ImportBookV
         binding.selectActionBar.inflateMenu(R.menu.import_book_sel)
         binding.selectActionBar.setOnMenuItemClickListener(this)
         binding.selectActionBar.setCallBack(this)
+        searchView.visibility = View.GONE
     }
 
     private fun initEvent() {
         binding.tvGoBack.setOnClickListener {
             goBackDir()
         }
+        searchView.setOnCloseListener {
+            searchView.isVisible = false
+            menuItem?.isVisible = true
+            false
+        }
+        searchView.setOnQueryTextListener(object :
+            androidx.appcompat.widget.SearchView.OnQueryTextListener {
+            override fun onQueryTextSubmit(query: String?): Boolean {
+                val bookFileNames = adapter.getItems()
+                for (i in bookFileNames.indices) {
+                    if (query != null && bookFileNames[i].name.contains(query)) {
+                        binding.recyclerView.scrollToPosition(i)
+                    }
+                }
+                searchView.clearFocus()
+                return true
+            }
+
+            override fun onQueryTextChange(newText: String?): Boolean {
+                return false
+            }
+        })
     }
 
     private fun initData() {

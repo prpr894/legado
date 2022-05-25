@@ -60,6 +60,9 @@ class SelectActionBar @JvmOverloads constructor(
         binding.ivMenuMore.visible()
         return selMenu?.menu
     }
+    fun getMenu(): Menu? {
+        return selMenu?.menu
+    }
 
     fun setCallBack(callBack: CallBack) {
         this.callBack = callBack

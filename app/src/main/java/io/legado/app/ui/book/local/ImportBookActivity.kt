@@ -53,6 +53,8 @@ class ImportBookActivity : VMBaseActivity<ActivityImportBookBinding, ImportBookV
     }
     private var menuItem: MenuItem? = null
 
+    private var showSearch = false
+
     private val selectFolder = registerForActivityResult(HandleFileContract()) {
         it.uri?.let { uri ->
             if (uri.isContentScheme()) {

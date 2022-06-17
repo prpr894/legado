@@ -8,6 +8,25 @@ plugins {
 }
 apply from: 'download.gradle'
 
+def getPropertiesFromFile() {
+    //可以使用绝对路径，也可以使用相对路径
+    def versionFile = file('../pwd.properties')
+    Properties properties = new Properties()
+    if (versionFile.canRead()) {
+        properties.load(new FileInputStream(versionFile))
+    } else {
+        properties['storePassword'] = "null! Could not find pwd.properties!"
+        properties['keyAlias'] = "null! Could not find pwd.properties!"
+        properties['keyPassword'] = "null! Could not find pwd.properties!"
+        //也可以直接抛异常
+//        throw new GradleException("Could not find fileConfigs.properties!")
+    }
+    logger.quiet("properties==${properties}")
+    return properties
+}
+
+def pwdProperties = getPropertiesFromFile()
+
 static def releaseTime() {
     return new Date().format("yy.MMddHH", TimeZone.getTimeZone("GMT+8"))
 }
@@ -24,7 +43,23 @@ android {
         jvmTarget = "11"
     }
 
+//需要在项目根目录创建文件prpr894.jks以及pwd.properties，pwd.properties内容为
+//storePassword = xxx
+//keyAlias = xxx
+//keyPassword = xxx
     signingConfigs {
+        debug {
+            storeFile file('../prpr894.jks')
+            storePassword pwdProperties['storePassword']
+            keyAlias pwdProperties['keyAlias']
+            keyPassword pwdProperties['keyPassword']
+        }
+        release {
+            storeFile file('../prpr894.jks')
+            storePassword pwdProperties['storePassword']
+            keyAlias pwdProperties['keyAlias']
+            keyPassword pwdProperties['keyPassword']
+        }
         if (project.hasProperty("RELEASE_STORE_FILE")) {
             myConfig {
                 storeFile file(RELEASE_STORE_FILE)
@@ -65,9 +100,7 @@ android {
     buildTypes {
         release {
             buildConfigField "String", "Cronet_Version", "\"$CronetVersion\""
-            if (project.hasProperty("RELEASE_STORE_FILE")) {
-                signingConfig signingConfigs.myConfig
-            }
+            signingConfig signingConfigs.release
             applicationIdSuffix '.release'
 
             minifyEnabled false
@@ -75,9 +108,7 @@ android {
         }
         debug {
             buildConfigField "String", "Cronet_Version", "\"$CronetVersion\""
-            if (project.hasProperty("RELEASE_STORE_FILE")) {
-                signingConfig signingConfigs.myConfig
-            }
+            signingConfig signingConfigs.debug
             applicationIdSuffix '.debug'
             versionNameSuffix 'debug'
             minifyEnabled false

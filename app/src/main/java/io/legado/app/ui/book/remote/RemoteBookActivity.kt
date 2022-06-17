@@ -2,6 +2,8 @@ package io.legado.app.ui.book.remote
 
 import android.annotation.SuppressLint
 import android.os.Bundle
+import android.view.Menu
+import android.view.MenuItem
 import androidx.activity.viewModels
 import androidx.core.view.isGone
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -38,6 +40,7 @@ class RemoteBookActivity : VMBaseActivity<ActivityRemoteBookBinding,RemoteBookVi
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
         binding.recyclerView.adapter = adapter
     }
+
     private fun initData() {
         binding.refreshProgressBar.isAutoLoading = true
         launch {
@@ -50,13 +53,27 @@ class RemoteBookActivity : VMBaseActivity<ActivityRemoteBookBinding,RemoteBookVi
         viewModel.loadRemoteBookList()
     }
 
+    override fun onCompatCreateOptionsMenu(menu: Menu): Boolean {
+        menuInflater.inflate(R.menu.book_remote, menu)
+        return super.onCompatCreateOptionsMenu(menu)
+    }
+
+    override fun onCompatOptionsItemSelected(item: MenuItem): Boolean {
+        when (item.itemId) {
+            R.id.menu_refresh -> {
+                viewModel.loadRemoteBookList()
+            }
+        }
+        return super.onCompatOptionsItemSelected(item)
+    }
+
     @SuppressLint("NotifyDataSetChanged")
     override fun addToBookshelf(remoteBook: RemoteBook) {
         waitDialog.show()
         viewModel.addToBookshelf(remoteBook, success = {
             toastOnUi(getString(R.string.download_book_success))
             adapter.notifyDataSetChanged()
-        }){
+        }) {
             waitDialog.dismiss()
         }
     }

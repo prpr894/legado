@@ -3,7 +3,6 @@ package io.legado.app.help
 import android.net.Uri
 import android.util.Base64
 import androidx.annotation.Keep
-import cn.hutool.crypto.SecureUtil
 import cn.hutool.crypto.digest.DigestUtil
 import cn.hutool.crypto.digest.HMac
 import io.legado.app.constant.AppConst
@@ -11,7 +10,10 @@ import io.legado.app.constant.AppConst.dateFormat
 import io.legado.app.constant.AppLog
 import io.legado.app.data.entities.BaseSource
 import io.legado.app.exception.NoStackTraceException
-import io.legado.app.help.http.*
+import io.legado.app.help.http.BackstageWebView
+import io.legado.app.help.http.CookieStore
+import io.legado.app.help.http.SSLHelper
+import io.legado.app.help.http.StrResponse
 import io.legado.app.model.Debug
 import io.legado.app.model.analyzeRule.AnalyzeUrl
 import io.legado.app.model.analyzeRule.QueryTTF
@@ -230,33 +232,45 @@ interface JsExtensions {
      * js实现重定向拦截,网络访问get
      */
     fun get(urlStr: String, headers: Map<String, String>): Connection.Response {
-        return Jsoup.connect(urlStr)
+        val response = Jsoup.connect(urlStr)
             .sslSocketFactory(SSLHelper.unsafeSSLSocketFactory)
             .ignoreContentType(true)
             .followRedirects(false)
             .headers(headers)
             .method(Connection.Method.GET)
             .execute()
+        val cookies = response.cookies()
+        CookieStore.mapToCookie(cookies)?.let {
+            val domain = NetworkUtils.getSubDomain(urlStr)
+            CacheManager.putMemory("${domain}_cookieJar", it)
+        }
+        return response
     }
 
     /**
      * js实现重定向拦截,网络访问head,不返回Response Body更省流量
      */
     fun head(urlStr: String, headers: Map<String, String>): Connection.Response {
-        return Jsoup.connect(urlStr)
+        val response = Jsoup.connect(urlStr)
             .sslSocketFactory(SSLHelper.unsafeSSLSocketFactory)
             .ignoreContentType(true)
             .followRedirects(false)
             .headers(headers)
             .method(Connection.Method.HEAD)
             .execute()
+        val cookies = response.cookies()
+        CookieStore.mapToCookie(cookies)?.let {
+            val domain = NetworkUtils.getSubDomain(urlStr)
+            CacheManager.putMemory("${domain}_cookieJar", it)
+        }
+        return response
     }
 
     /**
      * 网络访问post
      */
     fun post(urlStr: String, body: String, headers: Map<String, String>): Connection.Response {
-        return Jsoup.connect(urlStr)
+        val response = Jsoup.connect(urlStr)
             .sslSocketFactory(SSLHelper.unsafeSSLSocketFactory)
             .ignoreContentType(true)
             .followRedirects(false)
@@ -264,6 +278,12 @@ interface JsExtensions {
             .headers(headers)
             .method(Connection.Method.POST)
             .execute()
+        val cookies = response.cookies()
+        CookieStore.mapToCookie(cookies)?.let {
+            val domain = NetworkUtils.getSubDomain(urlStr)
+            CacheManager.putMemory("${domain}_cookieJar", it)
+        }
+        return response
     }
 
     /**
@@ -613,7 +633,7 @@ interface JsExtensions {
     ): ByteArray? {
         return try {
             EncoderUtils.decryptAES(
-                data = SecureUtil.decode(str),
+                data = str.encodeToByteArray(),
                 key = key.encodeToByteArray(),
                 transformation,
                 iv.encodeToByteArray()
@@ -657,7 +677,7 @@ interface JsExtensions {
         iv: String
     ): String? {
         return EncoderUtils.decryptAES(
-            SecureUtil.decode(data),
+            data.encodeToByteArray(),
             Base64.decode(key, Base64.NO_WRAP),
             "AES/${mode}/${padding}",
             Base64.decode(iv, Base64.NO_WRAP)
@@ -808,7 +828,7 @@ interface JsExtensions {
         data: String, key: String, transformation: String, iv: String
     ): String? {
         return EncoderUtils.decryptDES(
-            SecureUtil.decode(data),
+            data.encodeToByteArray(),
             key.encodeToByteArray(),
             transformation,
             iv.encodeToByteArray()
@@ -819,7 +839,7 @@ interface JsExtensions {
        data: String, key: String, transformation: String, iv: String
     ): String? {
         return EncoderUtils.decryptBase64DES(
-            SecureUtil.decode(data),
+            data.encodeToByteArray(),
             key.encodeToByteArray(),
             transformation,
             iv.encodeToByteArray()
@@ -867,7 +887,7 @@ interface JsExtensions {
         iv: String
     ): String? {
         return EncoderUtils.decryptDESede(
-            SecureUtil.decode(data),
+            data.encodeToByteArray(),
             key.encodeToByteArray(),
             "DESede/${mode}/${padding}",
             iv.encodeToByteArray()
@@ -892,7 +912,7 @@ interface JsExtensions {
         iv: String
     ): String? {
         return EncoderUtils.decryptDESede(
-            SecureUtil.decode(data),
+            data.encodeToByteArray(),
             Base64.decode(key, Base64.NO_WRAP),
             "DESede/${mode}/${padding}",
             Base64.decode(iv, Base64.NO_WRAP)

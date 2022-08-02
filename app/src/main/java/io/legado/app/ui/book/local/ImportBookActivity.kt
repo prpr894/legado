@@ -44,8 +44,6 @@ class ImportBookActivity : VMBaseActivity<ActivityImportBookBinding, ImportBookV
 
     override val binding by viewBinding(ActivityImportBookBinding::inflate)
     override val viewModel by viewModels<ImportBookViewModel>()
-    private var rootDoc: FileDoc? = null
-    private val subDocs = arrayListOf<FileDoc>()
     private val adapter by lazy { ImportBookAdapter(this, this) }
     private var scanDocJob: Job? = null
     private val searchView: SearchView by lazy {
@@ -59,15 +57,16 @@ class ImportBookActivity : VMBaseActivity<ActivityImportBookBinding, ImportBookV
         it.uri?.let { uri ->
             if (uri.isContentScheme()) {
                 AppConfig.importBookPath = uri.toString()
-                initRootDoc()
+                initRootDoc(true)
             } else {
                 AppConfig.importBookPath = uri.path
-                initRootDoc()
+                initRootDoc(true)
             }
         }
     }
 
     override fun onActivityCreated(savedInstanceState: Bundle?) {
+        binding.titleBar.setTitle(R.string.book_local)
         initView()
         initEvent()
         initData()
@@ -128,12 +127,14 @@ class ImportBookActivity : VMBaseActivity<ActivityImportBookBinding, ImportBookV
     @SuppressLint("NotifyDataSetChanged")
     override fun onClickSelectBarMainAction() {
         viewModel.addToBookshelf(adapter.selectedUris) {
+            adapter.selectedUris.clear()
             adapter.notifyDataSetChanged()
         }
     }
 
     private fun initView() {
         binding.layTop.setBackgroundColor(backgroundColor)
+        binding.tvEmptyMsg.setText(R.string.empty_msg_import_book)
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
         binding.recyclerView.adapter = adapter
         binding.selectActionBar.setMainActionText(R.string.add_to_shelf)
@@ -188,9 +189,10 @@ class ImportBookActivity : VMBaseActivity<ActivityImportBookBinding, ImportBookV
         }
     }
 
-    private fun initRootDoc() {
+    private fun initRootDoc(changedFolder: Boolean = false) {
         val lastPath = AppConfig.importBookPath
         when {
+            viewModel.rootDoc != null && !changedFolder -> upPath()
             lastPath.isNullOrEmpty() -> {
                 binding.tvEmptyMsg.visible()
                 selectFolder.launch()
@@ -203,9 +205,9 @@ class ImportBookActivity : VMBaseActivity<ActivityImportBookBinding, ImportBookV
                         binding.tvEmptyMsg.visible()
                         selectFolder.launch()
                     } else {
-                        subDocs.clear()
-                        rootDoc = FileDoc.fromDocumentFile(doc)
-                        upDocs(rootDoc!!)
+                        viewModel.subDocs.clear()
+                        viewModel.rootDoc = FileDoc.fromDocumentFile(doc)
+                        upDocs(viewModel.rootDoc!!)
                     }
                 }.onFailure {
                     binding.tvEmptyMsg.visible()
@@ -227,8 +229,8 @@ class ImportBookActivity : VMBaseActivity<ActivityImportBookBinding, ImportBookV
             .rationale(R.string.tip_perm_request_storage)
             .onGranted {
                 kotlin.runCatching {
-                    rootDoc = FileDoc.fromFile(File(path))
-                    subDocs.clear()
+                    viewModel.rootDoc = FileDoc.fromFile(File(path))
+                    viewModel.subDocs.clear()
                     upPath()
                 }.onFailure {
                     binding.tvEmptyMsg.visible()
@@ -248,7 +250,8 @@ class ImportBookActivity : VMBaseActivity<ActivityImportBookBinding, ImportBookV
 
     @Synchronized
     private fun upPath() {
-        rootDoc?.let {
+        binding.tvGoBack.isEnabled = viewModel.subDocs.isNotEmpty()
+        viewModel.rootDoc?.let {
             scanDocJob?.cancel()
             upDocs(it)
         }
@@ -258,7 +261,7 @@ class ImportBookActivity : VMBaseActivity<ActivityImportBookBinding, ImportBookV
         binding.tvEmptyMsg.gone()
         var path = rootDoc.name + File.separator
         var lastDoc = rootDoc
-        for (doc in subDocs) {
+        for (doc in viewModel.subDocs) {
             lastDoc = doc
             path = path + doc.name + File.separator
         }
@@ -272,9 +275,9 @@ class ImportBookActivity : VMBaseActivity<ActivityImportBookBinding, ImportBookV
      * 扫描当前文件夹及所有子文件夹
      */
     private fun scanFolder() {
-        rootDoc?.let { doc ->
+        viewModel.rootDoc?.let { doc ->
             adapter.clearItems()
-            val lastDoc = subDocs.lastOrNull() ?: doc
+            val lastDoc = viewModel.subDocs.lastOrNull() ?: doc
             binding.refreshProgressBar.isAutoLoading = true
             scanDocJob?.cancel()
             scanDocJob = launch(IO) {
@@ -304,14 +307,14 @@ class ImportBookActivity : VMBaseActivity<ActivityImportBookBinding, ImportBookV
 
     @Synchronized
     override fun nextDoc(fileDoc: FileDoc) {
-        subDocs.add(fileDoc)
+        viewModel.subDocs.add(fileDoc)
         upPath()
     }
 
     @Synchronized
     private fun goBackDir(): Boolean {
-        return if (subDocs.isNotEmpty()) {
-            subDocs.removeAt(subDocs.lastIndex)
+        return if (viewModel.subDocs.isNotEmpty()) {
+            viewModel.subDocs.removeAt(viewModel.subDocs.lastIndex)
             upPath()
             true
         } else {

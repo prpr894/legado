@@ -93,7 +93,7 @@ object PreferKey {
     const val brightness = "brightness"
     const val nightBrightness = "nightBrightness"
     const val expandTextMenu = "expandTextMenu"
-    const val doublePageHorizontal = "doublePageHorizontal"
+    const val doublePageHorizontal = "doubleHorizontalPage"
     const val readUrlOpenInBrowser = "readUrlInBrowser"
     const val defaultBookTreeUri = "defaultBookTreeUri"
     const val checkSource = "checkSource"
@@ -108,6 +108,7 @@ object PreferKey {
     const val welcomeShowTextDark = "welcomeShowTextDark"
     const val welcomeShowIcon = "welcomeShowIcon"
     const val welcomeShowIconDark = "welcomeShowIconDark"
+    const val pageTouchSlop = "pageTouchSlop"
 
     const val cPrimary = "colorPrimary"
     const val cAccent = "colorAccent"

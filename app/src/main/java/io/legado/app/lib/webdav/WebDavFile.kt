@@ -11,5 +11,12 @@ class WebDavFile(
     val urlName: String,
     val size: Long,
     val contentType: String,
+    val resourceType: String,
     val lastModify: Long
-) : WebDav(urlStr, authorization)
+    ) : WebDav(urlStr, authorization) {
+
+        val isDir by lazy {
+            contentType == "httpd/unix-directory" || resourceType.lowercase().contains("collection")
+        }
+
+}

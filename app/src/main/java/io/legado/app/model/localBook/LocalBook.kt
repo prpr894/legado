@@ -18,7 +18,6 @@ import io.legado.app.model.analyzeRule.AnalyzeUrl
 import io.legado.app.utils.*
 import splitties.init.appCtx
 import java.io.*
-import java.net.URLEncoder
 import java.util.regex.Pattern
 
 /**
@@ -143,7 +142,8 @@ object LocalBook {
                     "covers",
                     "${MD5Utils.md5Encode16(bookUrl)}.jpg"
                 ),
-                latestChapterTime = updateTime
+                latestChapterTime = updateTime,
+                order = appDb.bookDao.minOrder - 1
             )
             if (book.isEpub()) EpubFile.upBookInfo(book)
             if (book.isUmd()) UmdFile.upBookInfo(book)
@@ -275,7 +275,6 @@ object LocalBook {
         fileName: String
     ): Boolean {
         return appDb.bookDao.hasFile(fileName) == true
-                || appDb.bookDao.hasFile(URLEncoder.encode(fileName, "UTF-8")) == true
     }
 
     //文件类书源 合并在线书籍信息 在线 > 本地

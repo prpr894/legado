@@ -8,6 +8,7 @@ import android.view.Menu
 import android.view.MenuInflater
 import android.view.MenuItem
 import android.view.View
+import androidx.core.view.MenuProvider
 import androidx.documentfile.provider.DocumentFile
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
@@ -39,7 +40,8 @@ import splitties.init.appCtx
 import kotlin.collections.set
 
 class BackupConfigFragment : PreferenceFragment(),
-    SharedPreferences.OnSharedPreferenceChangeListener {
+    SharedPreferences.OnSharedPreferenceChangeListener,
+    MenuProvider {
 
     private val viewModel by activityViewModels<ConfigViewModel>()
 
@@ -124,23 +126,25 @@ class BackupConfigFragment : PreferenceFragment(),
         activity?.setTitle(R.string.backup_restore)
         preferenceManager.sharedPreferences?.registerOnSharedPreferenceChangeListener(this)
         listView.setEdgeEffectColor(primaryColor)
-        setHasOptionsMenu(true)
+        activity?.addMenuProvider(this, viewLifecycleOwner)
         if (!LocalConfig.backupHelpVersionIsLast) {
             showHelp()
         }
     }
 
-    override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
-        super.onCreateOptionsMenu(menu, inflater)
-        inflater.inflate(R.menu.backup_restore, menu)
+    override fun onCreateMenu(menu: Menu, menuInflater: MenuInflater) {
+        menuInflater.inflate(R.menu.backup_restore, menu)
         menu.applyTint(requireContext())
     }
 
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        when (item.itemId) {
-            R.id.menu_help -> showHelp()
+    override fun onMenuItemSelected(menuItem: MenuItem): Boolean {
+        when (menuItem.itemId) {
+            R.id.menu_help -> {
+                showHelp()
+                return true
+            }
         }
-        return super.onOptionsItemSelected(item)
+        return false
     }
 
     private fun showHelp() {
@@ -247,7 +251,12 @@ class BackupConfigFragment : PreferenceFragment(),
                         appCtx.toastOnUi(R.string.backup_success)
                     }.onError {
                         AppLog.put("备份出错\n${it.localizedMessage}", it)
-                        appCtx.toastOnUi(getString(R.string.backup_fail, it.localizedMessage))
+                        appCtx.toastOnUi(
+                            appCtx.getString(
+                                R.string.backup_fail,
+                                it.localizedMessage
+                            )
+                        )
                     }
                 } else {
                     backupDir.launch()
@@ -270,14 +279,14 @@ class BackupConfigFragment : PreferenceFragment(),
                     appCtx.toastOnUi(R.string.backup_success)
                 }.onError {
                     AppLog.put("备份出错\n${it.localizedMessage}", it)
-                    appCtx.toastOnUi(getString(R.string.backup_fail, it.localizedMessage))
+                    appCtx.toastOnUi(appCtx.getString(R.string.backup_fail, it.localizedMessage))
                 }
             }
             .request()
     }
 
     fun restore() {
-        Coroutine.async(context = Main) {
+        Coroutine.async {
             AppWebDav.showRestoreDialog(requireContext())
         }.onError {
             alert {

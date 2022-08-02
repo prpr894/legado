@@ -68,6 +68,9 @@ import io.legado.app.utils.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.Dispatchers.IO
 
+/**
+ * 阅读界面
+ */
 class ReadBookActivity : BaseReadBookActivity(),
     View.OnTouchListener,
     ReadView.CallBack,
@@ -110,13 +113,15 @@ class ReadBookActivity : BaseReadBookActivity(),
             it ?: return@registerForActivityResult
             it.data?.let { data ->
                 val key = data.getLongExtra("key", System.currentTimeMillis())
+                val index = data.getIntExtra("index", 0)
                 val searchResult = IntentData.get<SearchResult>("searchResult$key")
                 val searchResultList = IntentData.get<List<SearchResult>>("searchResultList$key")
                 if (searchResult != null && searchResultList != null) {
                     viewModel.searchContentQuery = searchResult.query
                     binding.searchMenu.upSearchResultList(searchResultList)
                     isShowingSearchResult = true
-                    binding.searchMenu.updateSearchResultIndex(searchResultList.indexOf(searchResult))
+                    viewModel.searchResultIndex = index
+                    binding.searchMenu.updateSearchResultIndex(index)
                     binding.searchMenu.selectedSearchResult?.let { currentResult ->
                         skipToSearch(currentResult)
                         showActionMenu()
@@ -125,8 +130,6 @@ class ReadBookActivity : BaseReadBookActivity(),
             }
         }
     private var menu: Menu? = null
-    private var changeSourceMenu: PopupMenu? = null
-    private var refreshMenu: PopupMenu? = null
     private var autoPageJob: Job? = null
     private var backupJob: Job? = null
     private var keepScreenJon: Job? = null
@@ -151,6 +154,8 @@ class ReadBookActivity : BaseReadBookActivity(),
     override val pageFactory: TextPageFactory get() = binding.readView.pageFactory
     override val headerHeight: Int get() = binding.readView.curPage.headerHeight
     private val menuLayoutIsVisible get() = bottomDialog > 0 || binding.readMenu.isVisible
+    private val nextPageRunnable by lazy { Runnable { mouseWheelPage(PageDirection.NEXT) } }
+    private val prevPageRunnable by lazy { Runnable { mouseWheelPage(PageDirection.PREV) } }
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onActivityCreated(savedInstanceState: Bundle?) {
@@ -159,6 +164,7 @@ class ReadBookActivity : BaseReadBookActivity(),
         binding.cursorRight.setColorFilter(accentColor)
         binding.cursorLeft.setOnTouchListener(this)
         binding.cursorRight.setOnTouchListener(this)
+        window.setBackgroundDrawable(null)
         upScreenTimeOut()
         ReadBook.callBack = this
     }
@@ -202,27 +208,23 @@ class ReadBookActivity : BaseReadBookActivity(),
     override fun onCompatCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.book_read, menu)
         menu.iconItemOnLongClick(R.id.menu_change_source) {
-            val changeSourceMenu = changeSourceMenu ?: PopupMenu(this, it).apply {
+            PopupMenu(this, it).apply {
                 inflate(R.menu.book_read_change_source)
                 this.menu.applyOpenTint(this@ReadBookActivity)
                 setOnMenuItemClickListener(this@ReadBookActivity)
-                changeSourceMenu = this
-            }
-            changeSourceMenu.show()
+            }.show()
         }
         menu.iconItemOnLongClick(R.id.menu_refresh) {
-            val refreshMenu = refreshMenu ?: PopupMenu(this, it).apply {
+            PopupMenu(this, it).apply {
                 inflate(R.menu.book_read_refresh)
                 this.menu.applyOpenTint(this@ReadBookActivity)
                 setOnMenuItemClickListener(this@ReadBookActivity)
-                refreshMenu = this
-            }
-            refreshMenu.show()
+            }.show()
         }
         return super.onCompatCreateOptionsMenu(menu)
     }
 
-    override fun onPrepareOptionsMenu(menu: Menu?): Boolean {
+    override fun onPrepareOptionsMenu(menu: Menu): Boolean {
         this.menu = menu
         upMenu()
         return super.onPrepareOptionsMenu(menu)
@@ -401,6 +403,28 @@ class ReadBookActivity : BaseReadBookActivity(),
             }
         }
         return super.dispatchKeyEvent(event)
+    }
+
+    /**
+     * 鼠标滚轮事件
+     */
+    override fun onGenericMotionEvent(event: MotionEvent): Boolean {
+        if (0 != (event.source and InputDevice.SOURCE_CLASS_POINTER)) {
+            if (event.action == MotionEvent.ACTION_SCROLL) {
+                val axisValue = event.getAxisValue(MotionEvent.AXIS_VSCROLL)
+                LogUtils.d("onGenericMotionEvent", "axisValue = $axisValue")
+                mainHandler.removeCallbacks(nextPageRunnable)
+                mainHandler.removeCallbacks(prevPageRunnable)
+                // 获得垂直坐标上的滚动方向
+                if (axisValue < 0.0f) { // 滚轮向下滚
+                    mainHandler.postDelayed(nextPageRunnable, 200)
+                } else { // 滚轮向上滚
+                    mainHandler.postDelayed(prevPageRunnable, 200)
+                }
+                return true
+            }
+        }
+        return super.onGenericMotionEvent(event)
     }
 
     /**
@@ -636,13 +660,27 @@ class ReadBookActivity : BaseReadBookActivity(),
     }
 
     /**
+     * 鼠标滚轮翻页
+     */
+    private fun mouseWheelPage(direction: PageDirection): Boolean {
+        if (!binding.readMenu.isVisible) {
+            if (getPrefBoolean("mouseWheelPage", true)) {
+                binding.readView.pageDelegate?.isCancel = false
+                binding.readView.pageDelegate?.keyTurnPage(direction)
+                return true
+            }
+        }
+        return false
+    }
+
+    /**
      * 音量键翻页
      */
     private fun volumeKeyPage(direction: PageDirection): Boolean {
         if (!binding.readMenu.isVisible) {
             if (getPrefBoolean("volumeKeyPage", true)) {
                 if (getPrefBoolean("volumeKeyPageOnPlay")
-                    || BaseReadAloudService.pause
+                    || !BaseReadAloudService.isPlay()
                 ) {
                     binding.readView.pageDelegate?.isCancel = false
                     binding.readView.pageDelegate?.keyTurnPage(direction)
@@ -853,6 +891,12 @@ class ReadBookActivity : BaseReadBookActivity(),
             searchContentActivity.launch(Intent(this, SearchContentActivity::class.java).apply {
                 putExtra("bookUrl", it.bookUrl)
                 putExtra("searchWord", searchWord ?: viewModel.searchContentQuery)
+                putExtra("searchResultIndex", viewModel.searchResultIndex)
+                viewModel.searchResultList?.first()?.let {
+                    if (it.query == viewModel.searchContentQuery) {
+                        IntentData.put("searchResultList", viewModel.searchResultList)
+                    }
+                }
             })
         }
     }
@@ -895,6 +939,8 @@ class ReadBookActivity : BaseReadBookActivity(),
             isShowingSearchResult = false
             binding.searchMenu.invalidate()
             binding.searchMenu.invisible()
+            binding.readView.isTextSelected = false
+            binding.readView.curPage.cancelSelect(true)
         }
     }
 
@@ -1017,7 +1063,8 @@ class ReadBookActivity : BaseReadBookActivity(),
         }
     }
 
-    override fun navigateToSearch(searchResult: SearchResult) {
+    override fun navigateToSearch(searchResult: SearchResult, index: Int) {
+        viewModel.searchResultIndex = index
         skipToSearch(searchResult)
     }
 
@@ -1027,22 +1074,23 @@ class ReadBookActivity : BaseReadBookActivity(),
         fun jumpToPosition() {
             ReadBook.curTextChapter?.let {
                 binding.searchMenu.updateSearchInfo()
-                val positions = viewModel.searchResultPositions(it, searchResult)
-                ReadBook.skipToPage(positions[0]) {
+                val (pageIndex, lineIndex, charIndex, addLine, charIndex2) =
+                    viewModel.searchResultPositions(it, searchResult)
+                ReadBook.skipToPage(pageIndex) {
                     launch {
                         isSelectingSearchResult = true
-                        binding.readView.curPage.selectStartMoveIndex(0, positions[1], positions[2])
-                        when (positions[3]) {
+                        binding.readView.curPage.selectStartMoveIndex(0, lineIndex, charIndex)
+                        when (addLine) {
                             0 -> binding.readView.curPage.selectEndMoveIndex(
                                 0,
-                                positions[1],
-                                positions[2] + viewModel.searchContentQuery.length - 1
+                                lineIndex,
+                                charIndex + viewModel.searchContentQuery.length - 1
                             )
                             1 -> binding.readView.curPage.selectEndMoveIndex(
-                                0, positions[1] + 1, positions[4]
+                                0, lineIndex + 1, charIndex2
                             )
                             //consider change page, jump to scroll position
-                            -1 -> binding.readView.curPage.selectEndMoveIndex(1, 0, positions[4])
+                            -1 -> binding.readView.curPage.selectEndMoveIndex(1, 0, charIndex2)
                         }
                         binding.readView.isTextSelected = true
                         isSelectingSearchResult = false
@@ -1160,6 +1208,9 @@ class ReadBookActivity : BaseReadBookActivity(),
         }
         observeEvent<String>(PreferKey.showBrightnessView) {
             readMenu.upBrightnessState()
+        }
+        observeEvent<List<SearchResult>>(EventBus.SEARCH_RESULT) {
+            viewModel.searchResultList = it
         }
     }
 

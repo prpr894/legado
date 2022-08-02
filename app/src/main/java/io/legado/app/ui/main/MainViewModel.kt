@@ -11,6 +11,7 @@ import io.legado.app.data.appDb
 import io.legado.app.data.entities.Book
 import io.legado.app.data.entities.BookSource
 import io.legado.app.help.AppWebDav
+import io.legado.app.help.BookHelp
 import io.legado.app.help.DefaultData
 import io.legado.app.help.config.AppConfig
 import io.legado.app.help.config.LocalConfig
@@ -116,6 +117,7 @@ class MainViewModel(application: Application) : BaseViewModel(application) {
         waitUpTocBooks.remove(bookUrl)
         upTocAdd(bookUrl)
         execute(context = upTocPool) {
+            val oldBook = book.copy()
             val preUpdateJs = source.ruleToc?.preUpdateJs
             if (!preUpdateJs.isNullOrBlank()) {
                 AnalyzeRule(book, source).evalJS(preUpdateJs)
@@ -129,8 +131,9 @@ class MainViewModel(application: Application) : BaseViewModel(application) {
             } else {
                 upTocAdd(book.bookUrl)
                 appDb.bookDao.insert(book)
+                BookHelp.updateCacheFolder(oldBook, book)
             }
-            appDb.bookChapterDao.delByBook(book.bookUrl)
+            appDb.bookChapterDao.delByBook(bookUrl)
             appDb.bookChapterDao.insert(*toc.toTypedArray())
             addDownload(source, book)
         }.onError(upTocPool) {
@@ -184,21 +187,20 @@ class MainViewModel(application: Application) : BaseViewModel(application) {
         cacheBookJob?.cancel()
         cacheBookJob = viewModelScope.launch(upTocPool) {
             while (isActive) {
-                if (CacheBookService.isRun) {
-                    cacheBookJob?.cancel()
-                    cacheBookJob = null
-                    return@launch
-                }
-                if (!CacheBook.isRun) {
+                if (CacheBookService.isRun || !CacheBook.isRun) {
                     cacheBookJob?.cancel()
                     cacheBookJob = null
                     return@launch
                 }
                 CacheBook.cacheBookMap.forEach {
-                    while (CacheBook.onDownloadCount > threadCount) {
-                        delay(100)
+                    val cacheBookModel = it.value
+                    while (cacheBookModel.waitCount > 0) {
+                        if (CacheBook.onDownloadCount < threadCount) {
+                            cacheBookModel.download(this, upTocPool)
+                        } else {
+                            delay(100)
+                        }
                     }
-                    it.value.download(this, upTocPool)
                 }
             }
         }

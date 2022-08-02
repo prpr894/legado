@@ -24,12 +24,15 @@ val cookieJar by lazy {
         }
 
         override fun saveFromResponse(url: HttpUrl, cookies: List<Cookie>) {
-            cookies.forEach {
-                //CookieStore.replaceCookie(url.toString(), "${it.name}=${it.value}")
-                //临时保存 书源启用cookie选项再添加到数据库
-                val domain = NetworkUtils.getSubDomain(url.toString())
-                CacheManager.putMemory("${domain}_cookieJar", "${it.name}=${it.value}")
+            if (cookies.isEmpty()) return
+            //临时保存 书源启用cookie选项再添加到数据库
+            val cookieBuilder = StringBuilder()
+            cookies.forEachIndexed { index, cookie ->
+                if (index > 0) cookieBuilder.append(";")
+                cookieBuilder.append(cookie.name).append('=').append(cookie.value)
             }
+            val domain = NetworkUtils.getSubDomain(url.toString())
+            CacheManager.putMemory("${domain}_cookieJar", cookieBuilder.toString())
         }
 
     }

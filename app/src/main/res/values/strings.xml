@@ -196,6 +196,7 @@
     <string name="img_cover">Cover</string>
     <string name="book">Book</string>
     <string name="volume_key_page">Volume keys to turn page</string>
+    <string name="mouse_wheel_page">Mouse wheel to turn page</string>
     <string name="click_turn_page">Tap screen to turn page</string>
     <string name="page_anim">Flip animation</string>
     <string name="book_page_anim">Flip animation (book)</string>
@@ -351,6 +352,7 @@
     <string name="sort">Sort</string>
     <string name="sort_auto">Sort automatically</string>
     <string name="sort_manual">Sort manually</string>
+    <string name="sort_default">Sort default</string>
     <string name="sort_by_name">Sort by name</string>
     <string name="go_to_top">Scroll to the top</string>
     <string name="go_to_bottom">Scroll to the bottom</string>
@@ -999,4 +1001,12 @@
     <string name="error_decode_bitmap">Fail to decode bitmap</string>
     <string name="error_image_url_empty">Image url is empty, check replacement rules</string>
     <string name="variable_comment">变量说明(variableComment)</string>
+    <string name="remote_book">远程书籍</string>
+    <string name="reading_time_sort">阅读时长排序</string>
+    <string name="last_read_time_sort">阅读时间排序</string>
+    <string name="reading_time_tag">阅读时长:</string>
+    <string name="last_read_time_tag">最后阅读时间:</string>
+    <string name="page_touch_slop_title">滑动翻页阈值</string>
+    <string name="page_touch_slop_dialog_title">滑动翻页阈值（0 = 系统默认值）</string>
+    <string name="page_touch_slop_summary">滑动多长距离才会触发滑动翻页（系统默认值 %s px）</string>
 </resources>

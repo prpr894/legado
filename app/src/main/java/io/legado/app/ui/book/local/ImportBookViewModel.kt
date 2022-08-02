@@ -4,6 +4,7 @@ import android.app.Application
 import android.net.Uri
 import androidx.documentfile.provider.DocumentFile
 import io.legado.app.base.BaseViewModel
+import io.legado.app.constant.AppLog
 import io.legado.app.constant.AppPattern.bookFileRegex
 import io.legado.app.constant.PreferKey
 import io.legado.app.model.localBook.LocalBook
@@ -21,6 +22,8 @@ import java.io.File
 import java.util.*
 
 class ImportBookViewModel(application: Application) : BaseViewModel(application) {
+    var rootDoc: FileDoc? = null
+    val subDocs = arrayListOf<FileDoc>()
     var sort = context.getPrefInt(PreferKey.localBookImportSort)
     var dataCallback: DataCallback? = null
     var dataFlowStart: (() -> Unit)? = null
@@ -74,6 +77,9 @@ class ImportBookViewModel(application: Application) : BaseViewModel(application)
             uriList.forEach {
                 LocalBook.importFile(Uri.parse(it))
             }
+        }.onError {
+            context.toastOnUi("添加书架失败，请尝试重新选择文件夹")
+            AppLog.put("添加书架失败\n${it.localizedMessage}", it)
         }.onFinally {
             finally.invoke()
         }

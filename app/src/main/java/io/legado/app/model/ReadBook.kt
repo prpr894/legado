@@ -21,6 +21,7 @@ import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.delay
 import splitties.init.appCtx
+import kotlin.math.min
 
 
 @Suppress("MemberVisibilityCanBePrivate")
@@ -106,7 +107,9 @@ object ReadBook : CoroutineScope by MainScope() {
 
     fun uploadProgress() {
         book?.let {
-            AppWebDav.uploadBookProgress(it)
+            Coroutine.async {
+                AppWebDav.uploadBookProgress(it)
+            }
         }
     }
 
@@ -114,6 +117,7 @@ object ReadBook : CoroutineScope by MainScope() {
         Coroutine.async {
             readRecord.readTime = readRecord.readTime + System.currentTimeMillis() - readStartTime
             readStartTime = System.currentTimeMillis()
+            readRecord.lastRead = System.currentTimeMillis()
             if (AppConfig.enableReadRecord) {
                 appDb.readRecordDao.insert(readRecord)
             }
@@ -306,8 +310,9 @@ object ReadBook : CoroutineScope by MainScope() {
         if (book != null && bookSource != null) {
             CacheBook.getOrCreate(bookSource, book).download(scope, chapter)
         } else if (book != null) {
+            val msg = if (book.isLocalBook()) "无内容" else "没有书源"
             contentLoadFinish(
-                book, chapter, "没有书源", resetPageOffset = resetPageOffset
+                book, chapter, "加载正文失败\n$msg", resetPageOffset = resetPageOffset
             ) {
                 success?.invoke()
             }
@@ -437,7 +442,7 @@ object ReadBook : CoroutineScope by MainScope() {
                 delay(1000)
                 download(i)
             }
-            val minChapterIndex = durChapterIndex - 5
+            val minChapterIndex = durChapterIndex - min(5, AppConfig.preDownloadNum)
             for (i in durChapterIndex.minus(2) downTo minChapterIndex) {
                 delay(1000)
                 download(i)

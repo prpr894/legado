@@ -312,13 +312,19 @@ object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
 
     val loadCoverOnlyWifi = appCtx.getPrefBoolean(PreferKey.loadCoverOnlyWifi, false)
 
-    val doublePageHorizontal: Boolean
-        get() = appCtx.getPrefBoolean(PreferKey.doublePageHorizontal, true)
+    val doublePageHorizontal: String?
+        get() = appCtx.getPrefString(PreferKey.doublePageHorizontal)
 
     var searchGroup: String
         get() = appCtx.getPrefString("searchGroup") ?: ""
         set(value) {
             appCtx.putPrefString("searchGroup", value)
+        }
+
+    var pageTouchSlop: Int
+        get() = appCtx.getPrefInt(PreferKey.pageTouchSlop, 0)
+        set(value) {
+            appCtx.putPrefInt(PreferKey.pageTouchSlop, value)
         }
 
     private fun getPrefUserAgent(): String {

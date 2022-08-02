@@ -74,6 +74,7 @@ class CacheBookService : BaseService() {
     override fun onDestroy() {
         isRun = false
         cachePool.close()
+        CacheBook.cacheBookMap.forEach { it.value.stop() }
         CacheBook.cacheBookMap.clear()
         super.onDestroy()
         postEvent(EventBus.UP_DOWNLOAD, "")
@@ -93,6 +94,11 @@ class CacheBookService : BaseService() {
 
     private fun removeDownload(bookUrl: String?) {
         CacheBook.cacheBookMap[bookUrl]?.stop()
+        postEvent(EventBus.UP_DOWNLOAD, "")
+        if (downloadJob == null && CacheBook.isRun) {
+            download()
+            return
+        }
         if (CacheBook.cacheBookMap.isEmpty()) {
             stopSelf()
         }
@@ -107,10 +113,14 @@ class CacheBookService : BaseService() {
                     return@launch
                 }
                 CacheBook.cacheBookMap.forEach {
-                    while (CacheBook.onDownloadCount > threadCount) {
-                        delay(100)
+                    val cacheBookModel = it.value
+                    while (cacheBookModel.waitCount > 0) {
+                        if (CacheBook.onDownloadCount < threadCount) {
+                            cacheBookModel.download(this, cachePool)
+                        } else {
+                            delay(100)
+                        }
                     }
-                    it.value.download(this, cachePool)
                 }
             }
         }

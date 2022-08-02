@@ -2,7 +2,6 @@ package io.legado.app.ui.book.info
 
 import android.app.Application
 import android.content.Intent
-import android.net.Uri
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
 import io.legado.app.R
@@ -19,6 +18,7 @@ import io.legado.app.help.BookHelp
 import io.legado.app.help.coroutine.Coroutine
 import io.legado.app.model.BookCover
 import io.legado.app.model.ReadBook
+import io.legado.app.model.analyzeRule.AnalyzeRule
 import io.legado.app.model.localBook.LocalBook
 import io.legado.app.model.webBook.WebBook
 import io.legado.app.utils.postEvent
@@ -154,11 +154,21 @@ class BookInfoViewModel(application: Application) : BaseViewModel(application) {
                 chapterListData.postValue(emptyList())
             } else {
                 bookSource?.let { bookSource ->
+                    val oldBook = book.copy()
+                    val preUpdateJs = bookSource.ruleToc?.preUpdateJs
+                    if (!preUpdateJs.isNullOrBlank()) {
+                        AnalyzeRule(book, bookSource).evalJS(preUpdateJs)
+                    }
                     WebBook.getChapterList(this, bookSource, book)
                         .onSuccess(IO) {
                             if (inBookshelf) {
-                                appDb.bookDao.update(book)
-                                appDb.bookChapterDao.delByBook(book.bookUrl)
+                                if (oldBook.bookUrl == book.bookUrl) {
+                                    appDb.bookDao.update(book)
+                                } else {
+                                    appDb.bookDao.insert(book)
+                                    BookHelp.updateCacheFolder(oldBook, book)
+                                }
+                                appDb.bookChapterDao.delByBook(oldBook.bookUrl)
                                 appDb.bookChapterDao.insert(*it.toTypedArray())
                             }
                             chapterListData.postValue(it)

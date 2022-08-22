@@ -82,13 +82,7 @@ class ReadView(context: Context, attrs: AttributeSet) :
     private val initialTextPos = TextPos(0, 0, 0)
 
     val slopSquare by lazy { ViewConfiguration.get(context).scaledTouchSlop }
-    val pageSlopSquare by lazy {
-        if (AppConfig.pageTouchSlop == 0) {
-            slopSquare
-        } else {
-            AppConfig.pageTouchSlop
-        }
-    }
+    private var pageSlopSquare: Int = slopSquare
     private val tlRect = RectF()
     private val tcRect = RectF()
     private val trRect = RectF()
@@ -112,6 +106,7 @@ class ReadView(context: Context, attrs: AttributeSet) :
             upBg()
             setWillNotDraw(false)
             upPageAnim()
+            upPageSlopSquare()
         }
     }
 
@@ -253,6 +248,9 @@ class ReadView(context: Context, attrs: AttributeSet) :
         return true
     }
 
+    /**
+     * 更新状态栏
+     */
     fun upStatusBar() {
         curPage.upStatusBar()
         prevPage.upStatusBar()
@@ -402,6 +400,9 @@ class ReadView(context: Context, attrs: AttributeSet) :
         }
     }
 
+    /**
+     * 点击
+     */
     private fun click(action: Int) {
         when (action) {
             0 -> callBack.showActionMenu()
@@ -441,11 +442,18 @@ class ReadView(context: Context, attrs: AttributeSet) :
         }
     }
 
+    /**
+     * 销毁事件
+     */
     fun onDestroy() {
         pageDelegate?.onDestroy()
         curPage.cancelSelect()
     }
 
+    /**
+     * 翻页动画完成后事件
+     * @param direction 翻页翻页反向
+     */
     fun fillPage(direction: PageDirection): Boolean {
         return when (direction) {
             PageDirection.PREV -> {
@@ -458,6 +466,9 @@ class ReadView(context: Context, attrs: AttributeSet) :
         }
     }
 
+    /**
+     * 更新翻页动画
+     */
     fun upPageAnim() {
         isScroll = ReadBook.pageAnim() == 3
         ChapterProvider.upLayout()
@@ -480,6 +491,11 @@ class ReadView(context: Context, attrs: AttributeSet) :
         }
     }
 
+    /**
+     * 更新阅读内容
+     * @param relativePosition 相对位置 -1 上一页 0 当前页 1 下一页
+     * @param resetPageOffset 滚动阅读是是否重置位置
+     */
     override fun upContent(relativePosition: Int, resetPageOffset: Boolean) {
         curPage.setContentDescription(pageFactory.curPage.text)
         if (isScroll && !callBack.isAutoPage) {
@@ -499,6 +515,17 @@ class ReadView(context: Context, attrs: AttributeSet) :
         callBack.screenOffTimerStart()
     }
 
+    /**
+     * 更新滑动距离
+     */
+    fun upPageSlopSquare() {
+        val pageTouchSlop = AppConfig.pageTouchSlop
+        this.pageSlopSquare = if (pageTouchSlop == 0) slopSquare else pageTouchSlop
+    }
+
+    /**
+     * 更新样式
+     */
     fun upStyle() {
         ChapterProvider.upStyle()
         curPage.upStyle()
@@ -506,6 +533,9 @@ class ReadView(context: Context, attrs: AttributeSet) :
         nextPage.upStyle()
     }
 
+    /**
+     * 更新背景
+     */
     fun upBg() {
         ReadBookConfig.upBg(width, height)
         curPage.upBg()
@@ -513,22 +543,56 @@ class ReadView(context: Context, attrs: AttributeSet) :
         nextPage.upBg()
     }
 
+    /**
+     * 更新背景透明度
+     */
     fun upBgAlpha() {
         curPage.upBgAlpha()
         prevPage.upBgAlpha()
         nextPage.upBgAlpha()
     }
 
+    /**
+     * 更新时间信息
+     */
     fun upTime() {
         curPage.upTime()
         prevPage.upTime()
         nextPage.upTime()
     }
 
+    /**
+     * 更新电量信息
+     */
     fun upBattery(battery: Int) {
         curPage.upBattery(battery)
         prevPage.upBattery(battery)
         nextPage.upBattery(battery)
+    }
+
+    /**
+     * 从选择位置开始朗读
+     */
+    fun aloudStartSelect() {
+        val selectStartPos = curPage.selectStartPos
+        var pagePos = selectStartPos.relativePagePos
+        val line = selectStartPos.lineIndex
+        val column = selectStartPos.charIndex
+        while (pagePos > 0) {
+            if (!ReadBook.moveToNextPage()) {
+                ReadBook.moveToNextChapter(false)
+            }
+            pagePos--
+        }
+        val startPos = curPage.textPage.getPosByLineColumn(line, column)
+        ReadAloud.play(context, startPos = startPos)
+    }
+
+    /**
+     * @return 选择的文本
+     */
+    fun getSelectText(): String {
+        return curPage.selectedText
     }
 
     override val currentChapter: TextChapter?

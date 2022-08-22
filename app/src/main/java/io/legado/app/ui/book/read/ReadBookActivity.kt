@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
 import android.content.res.Configuration
+import android.net.Uri
 import android.os.Bundle
 import android.view.*
 import androidx.activity.result.contract.ActivityResultContracts
@@ -14,10 +15,7 @@ import androidx.core.view.size
 import com.jaredrummler.android.colorpicker.ColorPickerDialogListener
 import io.legado.app.BuildConfig
 import io.legado.app.R
-import io.legado.app.constant.BookType
-import io.legado.app.constant.EventBus
-import io.legado.app.constant.PreferKey
-import io.legado.app.constant.Status
+import io.legado.app.constant.*
 import io.legado.app.data.appDb
 import io.legado.app.data.entities.Book
 import io.legado.app.data.entities.BookChapter
@@ -27,6 +25,7 @@ import io.legado.app.exception.NoStackTraceException
 import io.legado.app.help.AppWebDav
 import io.legado.app.help.BookHelp
 import io.legado.app.help.IntentData
+import io.legado.app.help.config.AppConfig
 import io.legado.app.help.config.ReadBookConfig
 import io.legado.app.help.config.ReadTipConfig
 import io.legado.app.help.coroutine.Coroutine
@@ -58,6 +57,7 @@ import io.legado.app.ui.book.source.edit.BookSourceEditActivity
 import io.legado.app.ui.book.toc.TocActivityResult
 import io.legado.app.ui.browser.WebViewActivity
 import io.legado.app.ui.dict.DictDialog
+import io.legado.app.ui.document.HandleFileContract
 import io.legado.app.ui.login.SourceLoginActivity
 import io.legado.app.ui.replace.ReplaceRuleActivity
 import io.legado.app.ui.replace.edit.ReplaceEditActivity
@@ -129,6 +129,12 @@ class ReadBookActivity : BaseReadBookActivity(),
                 }
             }
         }
+    private val selectImageDir = registerForActivityResult(HandleFileContract()) {
+        it.uri?.let { uri ->
+            ACache.get().put(AppConst.imagePathKey, uri.toString())
+            viewModel.saveImage(it.value, uri)
+        }
+    }
     private var menu: Menu? = null
     private var autoPageJob: Job? = null
     private var backupJob: Job? = null
@@ -177,6 +183,7 @@ class ReadBookActivity : BaseReadBookActivity(),
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         upSystemUiVisibility()
+        binding.readMenu.upBrightnessState()
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
@@ -604,13 +611,14 @@ class ReadBookActivity : BaseReadBookActivity(),
     /**
      * 当前选择的文本
      */
-    override val selectedText: String get() = binding.readView.curPage.selectedText
+    override val selectedText: String get() = binding.readView.getSelectText()
 
     /**
      * 文本选择菜单操作
      */
     override fun onMenuItemSelected(itemId: Int): Boolean {
         when (itemId) {
+            R.id.menu_aloud -> binding.readView.aloudStartSelect()
             R.id.menu_bookmark -> binding.readView.curPage.let {
                 val bookmark = it.createBookmark()
                 if (bookmark == null) {
@@ -964,14 +972,18 @@ class ReadBookActivity : BaseReadBookActivity(),
                 throw NoStackTraceException("no pay action")
             }
             JsUtils.evalJs(payAction) {
+                it["java"] = source
+                it["source"] = source
                 it["book"] = book
                 it["chapter"] = chapter
             }
         }.onSuccess {
-            startActivity<WebViewActivity> {
-                putExtra("title", getString(R.string.chapter_pay))
-                putExtra("url", it)
-                IntentData.put(it, ReadBook.bookSource?.getHeaderMap(true))
+            if (it.isNotBlank()) {
+                startActivity<WebViewActivity> {
+                    putExtra("title", getString(R.string.chapter_pay))
+                    putExtra("url", it)
+                    IntentData.put(it, ReadBook.bookSource?.getHeaderMap(true))
+                }
             }
         }.onError {
             toastOnUi(it.localizedMessage)
@@ -1001,13 +1013,26 @@ class ReadBookActivity : BaseReadBookActivity(),
         popupAction.setItems(
             listOf(
                 SelectItem(getString(R.string.show), "show"),
-                SelectItem(getString(R.string.refresh), "refresh")
+                SelectItem(getString(R.string.refresh), "refresh"),
+                SelectItem(getString(R.string.action_save), "save"),
+                SelectItem(getString(R.string.select_folder), "selectFolder")
             )
         )
         popupAction.onActionClick = {
             when (it) {
                 "show" -> showDialogFragment(PhotoDialog(src))
                 "refresh" -> viewModel.refreshImage(src)
+                "save" -> {
+                    val path = ACache.get().getAsString(AppConst.imagePathKey)
+                    if (path.isNullOrEmpty()) {
+                        selectImageDir.launch {
+                            value = src
+                        }
+                    } else {
+                        viewModel.saveImage(src, Uri.parse(path))
+                    }
+                }
+                "selectFolder" -> selectImageDir.launch()
             }
             popupAction.dismiss()
         }
@@ -1124,13 +1149,17 @@ class ReadBookActivity : BaseReadBookActivity(),
     override fun finish() {
         ReadBook.book?.let {
             if (!ReadBook.inBookshelf) {
-                alert(title = getString(R.string.add_to_shelf)) {
-                    setMessage(getString(R.string.check_add_bookshelf, it.name))
-                    okButton {
-                        ReadBook.inBookshelf = true
-                        setResult(Activity.RESULT_OK)
+                if (!AppConfig.showAddToShelfAlert) {
+                    viewModel.removeFromBookshelf { super.finish() }
+                } else {
+                    alert(title = getString(R.string.add_to_shelf)) {
+                        setMessage(getString(R.string.check_add_bookshelf, it.name))
+                        okButton {
+                            ReadBook.inBookshelf = true
+                            setResult(Activity.RESULT_OK)
+                        }
+                        noButton { viewModel.removeFromBookshelf { super.finish() } }
                     }
-                    noButton { viewModel.removeFromBookshelf { super.finish() } }
                 }
             } else {
                 super.finish()
@@ -1167,6 +1196,7 @@ class ReadBookActivity : BaseReadBookActivity(),
         }
         observeEvent<Boolean>(EventBus.UP_CONFIG) {
             upSystemUiVisibility()
+            readView.upPageSlopSquare()
             readView.upBg()
             readView.upStyle()
             readView.upBgAlpha()

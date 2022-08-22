@@ -24,6 +24,7 @@ import io.legado.app.utils.activityPendingIntent
 import io.legado.app.utils.postEvent
 import io.legado.app.utils.servicePendingIntent
 import io.legado.app.utils.toastOnUi
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.asCoroutineDispatcher
@@ -71,6 +72,7 @@ class CheckSourceService : BaseService() {
             IntentAction.start -> intent.getStringArrayListExtra("selectIds")?.let {
                 check(it)
             }
+            IntentAction.resume -> upNotification()
             else -> stopSelf()
         }
         return super.onStartCommand(intent, flags, startId)
@@ -122,7 +124,7 @@ class CheckSourceService : BaseService() {
      *校验书源
      */
     private fun check(source: BookSource) {
-        execute(context = searchCoroutine) {
+        execute(context = searchCoroutine, start = CoroutineStart.LAZY) {
             Debug.startChecking(source)
             var searchWord = CheckSource.keyword
             source.ruleSearch?.checkKeyWord?.let {
@@ -134,13 +136,13 @@ class CheckSourceService : BaseService() {
             source.bookSourceComment = source.bookSourceComment
                 ?.split("\n\n")
                 ?.filterNot {
-                    it.startsWith("Error: ")
+                    it.startsWith("// Error: ")
                 }?.joinToString("\n")
             //校验搜索书籍
             if (CheckSource.checkSearch) {
                 if (!source.searchUrl.isNullOrBlank()) {
                     source.removeGroup("搜索链接规则为空")
-                    val searchBooks = WebBook.searchBookAwait(this, source, searchWord)
+                    val searchBooks = WebBook.searchBookAwait(source, searchWord)
                     if (searchBooks.isEmpty()) {
                         source.addGroup("搜索失效")
                     } else {
@@ -162,10 +164,10 @@ class CheckSourceService : BaseService() {
                     }
                 }
                 if (url.isNullOrBlank()) {
-                   source.addGroup("发现规则为空")
+                    source.addGroup("发现规则为空")
                 } else {
                     source.removeGroup("发现规则为空")
-                    val exploreBooks = WebBook.exploreBookAwait(this, source, url)
+                    val exploreBooks = WebBook.exploreBookAwait(source, url)
                     if (exploreBooks.isEmpty()) {
                         source.addGroup("发现失效")
                     } else {
@@ -184,7 +186,7 @@ class CheckSourceService : BaseService() {
                     !is NoStackTraceException -> source.addGroup("网站失效")
                 }
                 source.bookSourceComment =
-                    "Error: ${it.localizedMessage}" + if (source.bookSourceComment.isNullOrBlank())
+                    "// Error: ${it.localizedMessage}" + if (source.bookSourceComment.isNullOrBlank())
                         "" else "\n\n${source.bookSourceComment}"
                 Debug.updateFinalMessage(source.bookSourceUrl, "校验失败:${it.localizedMessage}")
             }.onSuccess(searchCoroutine) {
@@ -194,7 +196,7 @@ class CheckSourceService : BaseService() {
                 source.respondTime = Debug.getRespondTime(source.bookSourceUrl)
                 appDb.bookSourceDao.update(source)
                 onNext(source.bookSourceUrl, source.bookSourceName)
-            }
+            }.start()
     }
 
     /**
@@ -206,13 +208,13 @@ class CheckSourceService : BaseService() {
             //校验详情
             if (CheckSource.checkInfo) {
                 if (mBook.tocUrl.isBlank()) {
-                    mBook = WebBook.getBookInfoAwait(this, source, mBook)
+                    mBook = WebBook.getBookInfoAwait(source, mBook)
                 }
                 //校验目录
                 if (CheckSource.checkCategory &&
                     source.bookSourceType != BookType.file
                 ) {
-                    val toc = WebBook.getChapterListAwait(this, source, mBook).getOrThrow()
+                    val toc = WebBook.getChapterListAwait(source, mBook).getOrThrow()
                     val nextChapterUrl = toc.getOrNull(1)?.url ?: toc.first().url
                     //校验正文
                     if (CheckSource.checkContent) {

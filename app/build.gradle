@@ -1,6 +1,7 @@
 plugins {
     id "com.android.application"
     id 'org.jetbrains.kotlin.android'
+    id 'com.google.devtools.ksp'
     id 'kotlin-parcelize'
     id 'kotlin-kapt'
     id "de.timfreiheit.resourceplaceholders"
@@ -92,6 +93,9 @@ android {
                 ]
             }
         }
+        ksp {
+            arg("room.schemaLocation", "$projectDir/schemas")
+        }
     }
     buildFeatures {
         viewBinding true
@@ -160,12 +164,6 @@ resourcePlaceholders {
     files = ['xml/shortcuts.xml']
 }
 
-kapt {
-    arguments {
-        arg("room.schemaLocation", "$projectDir/schemas")
-    }
-}
-
 dependencies {
     //noinspection GradleDependency
     coreLibraryDesugaring('com.android.tools:desugar_jdk_libs:1.1.6')
@@ -190,9 +188,9 @@ dependencies {
 
     //androidX
     implementation('androidx.core:core-ktx:1.8.0')
-    implementation('androidx.appcompat:appcompat:1.4.2')
+    implementation('androidx.appcompat:appcompat:1.5.0')
     implementation('androidx.activity:activity-ktx:1.5.1')
-    implementation('androidx.fragment:fragment-ktx:1.5.1')
+    implementation('androidx.fragment:fragment-ktx:1.5.2')
     implementation('androidx.preference:preference-ktx:1.2.0')
     implementation('androidx.constraintlayout:constraintlayout:2.1.4')
     implementation('androidx.swiperefreshlayout:swiperefreshlayout:1.1.0')
@@ -222,8 +220,6 @@ dependencies {
 
     //media
     implementation("androidx.media:media:1.6.0")
-
-
     implementation("com.google.android.exoplayer:exoplayer-core:$exoplayer_version")
     implementation("com.google.android.exoplayer:extension-okhttp:$exoplayer_version")
 
@@ -235,8 +231,7 @@ dependencies {
     //room
     implementation("androidx.room:room-runtime:$room_version")
     implementation("androidx.room:room-ktx:$room_version")
-    kapt("androidx.room:room-compiler:$room_version")
-    //ksp("androidx.room:room-compiler:$room_version")
+    ksp("androidx.room:room-compiler:$room_version")
     testImplementation("androidx.room:room-testing:$room_version")
 
     //liveEventBus
@@ -283,7 +278,7 @@ dependencies {
     implementation("io.noties.markwon:html:$markwonVersion")
 
     //转换繁体
-    implementation('com.github.liuyueyi.quick-chinese-transfer:quick-transfer-core:0.2.5')
+    implementation('com.github.liuyueyi.quick-chinese-transfer:quick-transfer-core:0.2.6')
 
     //加解密类库,有些书源使用
     //noinspection GradleDependency
@@ -294,7 +289,7 @@ dependencies {
     //implementation 'com.google.firebase:firebase-analytics-ktx:21.0.0'
     //implementation 'com.google.firebase:firebase-perf-ktx:20.0.6'
 
-    // LeakCanary
+    //LeakCanary, 内存泄露检测
     //debugImplementation('com.squareup.leakcanary:leakcanary-android:2.7')
 
     //com.github.AmrDeveloper:CodeView代码编辑已集成到应用内

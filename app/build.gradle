@@ -1,7 +1,6 @@
 plugins {
     id "com.android.application"
     id 'org.jetbrains.kotlin.android'
-    id 'com.google.devtools.ksp'
     id 'kotlin-parcelize'
     id 'kotlin-kapt'
     id "de.timfreiheit.resourceplaceholders"
@@ -37,8 +36,8 @@ def version = "3." + releaseTime()
 def gitCommits = Integer.parseInt('git rev-list HEAD --count'.execute().text.trim())
 
 android {
-    compileSdkVersion 32
-    buildToolsVersion "32.0.0"
+    compileSdkVersion 33
+    buildToolsVersion "33.0.0"
     namespace 'io.legado.app'
     kotlinOptions {
         jvmTarget = "11"
@@ -77,7 +76,7 @@ android {
     defaultConfig {
         applicationId "io.legado.app"
         minSdkVersion 21
-        targetSdkVersion 32
+        targetSdkVersion 33
         versionCode 10000 + gitCommits
         versionName version
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
@@ -92,9 +91,6 @@ android {
                         "room.schemaLocation"  : "$projectDir/schemas".toString()
                 ]
             }
-        }
-        ksp {
-            arg("room.schemaLocation", "$projectDir/schemas")
         }
     }
     buildFeatures {
@@ -187,8 +183,8 @@ dependencies {
     implementation('com.github.android:renderscript-intrinsics-replacement-toolkit:b6363490c3')
 
     //androidX
-    implementation('androidx.core:core-ktx:1.8.0')
-    implementation('androidx.appcompat:appcompat:1.5.0')
+    implementation('androidx.core:core-ktx:1.9.0')
+    implementation('androidx.appcompat:appcompat:1.5.1')
     implementation('androidx.activity:activity-ktx:1.5.1')
     implementation('androidx.fragment:fragment-ktx:1.5.2')
     implementation('androidx.preference:preference-ktx:1.2.0')
@@ -231,7 +227,7 @@ dependencies {
     //room
     implementation("androidx.room:room-runtime:$room_version")
     implementation("androidx.room:room-ktx:$room_version")
-    ksp("androidx.room:room-compiler:$room_version")
+    kapt("androidx.room:room-compiler:$room_version")
     testImplementation("androidx.room:room-testing:$room_version")
 
     //liveEventBus
@@ -278,7 +274,7 @@ dependencies {
     implementation("io.noties.markwon:html:$markwonVersion")
 
     //转换繁体
-    implementation('com.github.liuyueyi.quick-chinese-transfer:quick-transfer-core:0.2.6')
+    implementation('com.github.liuyueyi.quick-chinese-transfer:quick-transfer-core:0.2.7')
 
     //加解密类库,有些书源使用
     //noinspection GradleDependency

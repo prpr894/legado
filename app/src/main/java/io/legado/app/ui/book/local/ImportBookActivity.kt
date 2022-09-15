@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
@@ -51,7 +52,8 @@ class ImportBookActivity : VMBaseActivity<ActivityImportBookBinding, ImportBookV
     }
     private var menuItem: MenuItem? = null
 
-    private var showSearch = false
+    private var searchSelectIndex = -1
+    private val searchResultIndex: MutableList<Int> = ArrayList()
 
     private val selectFolder = registerForActivityResult(HandleFileContract()) {
         it.uri?.let { uri ->
@@ -104,6 +106,8 @@ class ImportBookActivity : VMBaseActivity<ActivityImportBookBinding, ImportBookV
     private fun searchClick() {
         searchView.visibility = View.VISIBLE
         searchView.performClick()
+        binding.llSearchResultCtr.visibility = View.VISIBLE
+        binding.tvSearchResultIndex.text = resources.getString(R.string.empty)
     }
 
     override fun onMenuItemClick(item: MenuItem?): Boolean {
@@ -142,6 +146,9 @@ class ImportBookActivity : VMBaseActivity<ActivityImportBookBinding, ImportBookV
         binding.selectActionBar.setOnMenuItemClickListener(this)
         binding.selectActionBar.setCallBack(this)
         searchView.visibility = View.GONE
+        binding.llSearchResultCtr.visibility = View.GONE
+        binding.imgBtnPre.setOnClickListener { preSearchResult() }
+        binding.imgBtnNext.setOnClickListener { nextSearchResult() }
     }
 
     private fun initEvent() {
@@ -151,18 +158,23 @@ class ImportBookActivity : VMBaseActivity<ActivityImportBookBinding, ImportBookV
         searchView.setOnCloseListener {
             searchView.isVisible = false
             menuItem?.isVisible = true
+            binding.llSearchResultCtr.visibility = View.GONE
+            searchSelectIndex = -1
+            searchResultIndex.clear()
+            binding.tvSearchResultIndex.text = resources.getString(R.string.empty)
             false
         }
-        //TODO 增加搜索结果上下一个结果跳转，显示“m/n”的定位信息 悬浮上下按钮
         searchView.setOnQueryTextListener(object :
             androidx.appcompat.widget.SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String?): Boolean {
+                searchResultIndex.clear()
                 val bookFileNames = adapter.getItems()
                 for (i in bookFileNames.indices) {
                     if (query != null && bookFileNames[i].name.contains(query)) {
-                        binding.recyclerView.scrollToPosition(i)
+                        searchResultIndex.add(i)
                     }
                 }
+                firstSearchResult()
                 searchView.clearFocus()
                 return true
             }
@@ -171,6 +183,51 @@ class ImportBookActivity : VMBaseActivity<ActivityImportBookBinding, ImportBookV
                 return false
             }
         })
+    }
+
+    private fun nextSearchResult() {
+        val j = getIndexByValueInSearchResultIndex(searchSelectIndex) + 1
+        if (searchResultIndex.size > j) {
+            val i = searchResultIndex[j]
+            searchSelectIndex = i
+            refreshSearchResult(j, i)
+        }
+
+    }
+
+    private fun preSearchResult() {
+        val j = getIndexByValueInSearchResultIndex(searchSelectIndex) - 1
+        if (searchResultIndex.size >= j && j >= 0) {
+            val i = searchResultIndex[j]
+            searchSelectIndex = i
+            refreshSearchResult(j, i)
+        }
+    }
+
+    private fun firstSearchResult() {
+        if (searchResultIndex.size > 0) {
+            val i = searchResultIndex[0]
+            searchSelectIndex = i
+            refreshSearchResult(0, i)
+        }
+    }
+
+    private fun getIndexByValueInSearchResultIndex(indexValue: Int): Int {
+        for (i in 0 until searchResultIndex.size) {
+            if (searchResultIndex[i] == indexValue) {
+                return i
+            }
+        }
+        return -1
+    }
+
+    private fun refreshSearchResult(j: Int, i: Int) {
+        val size = searchResultIndex.size
+        val jI = j + 1
+        val indexToShow = "$jI/$size"
+        binding.tvSearchResultIndex.text = indexToShow
+        binding.recyclerView.scrollToPosition(i)
+        adapter.refreshSearchResult(i)
     }
 
     private fun initData() {

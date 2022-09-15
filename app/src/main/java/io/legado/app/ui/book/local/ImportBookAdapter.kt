@@ -9,6 +9,7 @@ import io.legado.app.base.adapter.ItemViewHolder
 import io.legado.app.base.adapter.RecyclerAdapter
 import io.legado.app.constant.AppConst
 import io.legado.app.databinding.ItemImportBookBinding
+import io.legado.app.lib.theme.ThemeUtils
 import io.legado.app.utils.*
 
 
@@ -17,6 +18,19 @@ class ImportBookAdapter(context: Context, val callBack: CallBack) :
     val selectedUris = hashSetOf<String>()
     var checkableCount = 0
     private val bookFileNames = arrayListOf<String>()
+    private var searchResultFocusIndex = -1
+    private var searchResultFocusPreIndex = -1
+
+    public fun refreshSearchResult(newIndex: Int) {
+        searchResultFocusPreIndex = searchResultFocusIndex
+        searchResultFocusIndex = newIndex
+        if (searchResultFocusPreIndex != -1) {
+            notifyItemChanged(searchResultFocusPreIndex)
+        }
+        if (searchResultFocusIndex != -1) {
+            notifyItemChanged(searchResultFocusIndex)
+        }
+    }
 
     override fun getViewBinding(parent: ViewGroup): ItemImportBookBinding {
         return ItemImportBookBinding.inflate(inflater, parent, false)
@@ -58,6 +72,12 @@ class ImportBookAdapter(context: Context, val callBack: CallBack) :
                 tvName.text = item.name
             } else {
                 cbSelect.isChecked = selectedUris.contains(item.toString())
+            }
+            if (searchResultFocusIndex == holder.adapterPosition) {
+                llItemResult.setBackgroundColor(context.getCompatColor(R.color.btn_bg_press))
+            } else {
+                llItemResult.background =
+                    ThemeUtils.resolveDrawable(context, android.R.attr.selectableItemBackground)
             }
         }
     }

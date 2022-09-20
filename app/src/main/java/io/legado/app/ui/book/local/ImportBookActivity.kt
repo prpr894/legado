@@ -149,6 +149,7 @@ class ImportBookActivity : VMBaseActivity<ActivityImportBookBinding, ImportBookV
         binding.llSearchResultCtr.visibility = View.GONE
         binding.imgBtnPre.setOnClickListener { preSearchResult() }
         binding.imgBtnNext.setOnClickListener { nextSearchResult() }
+        binding.tvSearchResultIndex.setOnClickListener { toastOnUi(binding.tvSearchResultIndex.text.trim()) }
     }
 
     private fun initEvent() {
@@ -162,6 +163,7 @@ class ImportBookActivity : VMBaseActivity<ActivityImportBookBinding, ImportBookV
             searchSelectIndex = -1
             searchResultIndex.clear()
             binding.tvSearchResultIndex.text = resources.getString(R.string.empty)
+            adapter.refreshSearchResult(-1)
             false
         }
         searchView.setOnQueryTextListener(object :

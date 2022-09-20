@@ -6,9 +6,10 @@ import androidx.room.*
 import io.legado.app.constant.AppPattern
 import io.legado.app.constant.BookType
 import io.legado.app.data.entities.rule.*
-import io.legado.app.help.SourceAnalyzer
-import io.legado.app.utils.*
-import kotlinx.parcelize.IgnoredOnParcel
+import io.legado.app.help.source.SourceAnalyzer
+import io.legado.app.utils.GSON
+import io.legado.app.utils.fromJsonObject
+import io.legado.app.utils.splitNotBlank
 import kotlinx.parcelize.Parcelize
 import java.io.InputStream
 
@@ -87,48 +88,6 @@ data class BookSource(
 
     override fun getKey(): String {
         return bookSourceUrl
-    }
-
-    @delegate:Transient
-    @delegate:Ignore
-    @IgnoredOnParcel
-    val exploreKinds: List<ExploreKind> by lazy {
-        val exploreUrl = exploreUrl ?: return@lazy emptyList()
-        val kinds = arrayListOf<ExploreKind>()
-        var ruleStr = exploreUrl
-        if (ruleStr.isNotBlank()) {
-            kotlin.runCatching {
-                if (exploreUrl.startsWith("<js>", false)
-                    || exploreUrl.startsWith("@js:", false)
-                ) {
-                    val aCache = ACache.get("explore")
-                    ruleStr = aCache.getAsString(bookSourceUrl) ?: ""
-                    if (ruleStr.isBlank()) {
-                        val jsStr = if (exploreUrl.startsWith("@")) {
-                            exploreUrl.substring(4)
-                        } else {
-                            exploreUrl.substring(4, exploreUrl.lastIndexOf("<"))
-                        }
-                        ruleStr = evalJS(jsStr).toString().trim()
-                        aCache.put(bookSourceUrl, ruleStr)
-                    }
-                }
-                if (ruleStr.isJsonArray()) {
-                    GSON.fromJsonArray<ExploreKind>(ruleStr).getOrThrow()?.let {
-                        kinds.addAll(it)
-                    }
-                } else {
-                    ruleStr.split("(&&|\n)+".toRegex()).forEach { kindStr ->
-                        val kindCfg = kindStr.split("::")
-                        kinds.add(ExploreKind(kindCfg.first(), kindCfg.getOrNull(1)))
-                    }
-                }
-            }.onFailure {
-                kinds.add(ExploreKind("ERROR:${it.localizedMessage}", it.stackTraceToString()))
-                it.printOnDebug()
-            }
-        }
-        return@lazy kinds
     }
 
     override fun hashCode(): Int {

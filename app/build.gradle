@@ -161,18 +161,17 @@ resourcePlaceholders {
 }
 
 dependencies {
-    //noinspection GradleDependency
+    //noinspection GradleDependency,GradlePackageUpdate
     coreLibraryDesugaring('com.android.tools:desugar_jdk_libs:1.1.6')
     testImplementation('junit:junit:4.13.2')
     androidTestImplementation('androidx.test:runner:1.4.0')
     androidTestImplementation('androidx.test.espresso:espresso-core:3.4.0')
     implementation('androidx.multidex:multidex:2.0.1')
     //kotlin
-    //noinspection GradleDependency
-    //noinspection DifferentStdlibGradleVersion
+    //noinspection GradleDependency,DifferentStdlibGradleVersion
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version")
     //Kotlin反射
-    //noinspection GradleDependency
+    //noinspection GradleDependency,DifferentStdlibGradleVersion
     implementation("org.jetbrains.kotlin:kotlin-reflect:$kotlin_version")
     //协程
     def coroutines_version = '1.6.4'
@@ -228,7 +227,7 @@ dependencies {
     implementation("androidx.room:room-runtime:$room_version")
     implementation("androidx.room:room-ktx:$room_version")
     kapt("androidx.room:room-compiler:$room_version")
-    testImplementation("androidx.room:room-testing:$room_version")
+    androidTestImplementation("androidx.room:room-testing:$room_version")
 
     //liveEventBus
     implementation('io.github.jeremyliao:live-event-bus-x:1.8.0')
@@ -277,7 +276,7 @@ dependencies {
     implementation('com.github.liuyueyi.quick-chinese-transfer:quick-transfer-core:0.2.7')
 
     //加解密类库,有些书源使用
-    //noinspection GradleDependency
+    //noinspection GradleDependency,GradlePackageUpdate
     implementation('cn.hutool:hutool-crypto:5.8.1')
 
     //firebase, 崩溃统计和性能统计, 会导致共存版本崩溃

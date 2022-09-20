@@ -22,6 +22,7 @@
             android:background="@color/background_menu"
             android:elevation="5dp"
             android:theme="?attr/actionBarStyle"
+            app:title="@string/login"
             app:displayHomeAsUp="false"
             app:fitStatusBar="false"
             app:popupTheme="@style/AppTheme.PopupOverlay"
@@ -29,7 +30,8 @@
 
         <androidx.core.widget.NestedScrollView
             android:layout_width="match_parent"
-            android:layout_height="wrap_content">
+            android:layout_height="wrap_content"
+            android:overScrollMode="ifContentScrolls">
 
             <com.google.android.flexbox.FlexboxLayout
                 android:id="@+id/flexbox"

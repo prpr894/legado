@@ -875,7 +875,7 @@
     <string name="anti_alias">Anti-Aliasing</string>
     <string name="pref_anti_alias_summary">Anti-Aliasing when draw picture</string>
     <string name="upload_url">上传URL</string>
-    <string name="download_url_rule">下载URL规则</string>
+    <string name="download_url_rule">downloadUrlRule(downloadUrls)</string>
     <string name="sort_by_respondTime">Sort by respond time</string>
     <string name="export_success">导出成功</string>
     <string name="path">路径</string>
@@ -1037,4 +1037,5 @@
     <string name="refresh_sort">刷新分类</string>
     <string name="prev_search_result">上一个搜索结果</string>
     <string name="next_search_result">下一个搜索结果</string>
+    <string name="cover_decode_js">Decode Cover Js(coverDecodeJs)</string>
 </resources>

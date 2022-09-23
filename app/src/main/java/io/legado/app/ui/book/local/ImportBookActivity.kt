@@ -150,6 +150,10 @@ class ImportBookActivity : VMBaseActivity<ActivityImportBookBinding, ImportBookV
         binding.imgBtnPre.setOnClickListener { preSearchResult() }
         binding.imgBtnNext.setOnClickListener { nextSearchResult() }
         binding.tvSearchResultIndex.setOnClickListener { toastOnUi(binding.tvSearchResultIndex.text.trim()) }
+        binding.tvSearchResultIndex.setOnLongClickListener { view ->
+            //TODO 添加跳转到指定搜索结果
+            true
+        }
     }
 
     private fun initEvent() {

@@ -1,12 +1,12 @@
 package io.legado.app.model
 
 import io.legado.app.constant.AppLog
-import io.legado.app.constant.BookType
 import io.legado.app.data.appDb
 import io.legado.app.data.entities.*
 import io.legado.app.help.AppWebDav
-import io.legado.app.help.BookHelp
-import io.legado.app.help.ContentProcessor
+import io.legado.app.help.book.BookHelp
+import io.legado.app.help.book.ContentProcessor
+import io.legado.app.help.book.isLocal
 import io.legado.app.help.config.AppConfig
 import io.legado.app.help.config.ReadBookConfig
 import io.legado.app.help.coroutine.Coroutine
@@ -42,6 +42,31 @@ object ReadBook : CoroutineScope by MainScope() {
     private val loadingChapters = arrayListOf<Int>()
     private val readRecord = ReadRecord()
     var readStartTime: Long = System.currentTimeMillis()
+    /* 跳转历史记录 */
+    var bookProgressHistory: List<BookProgress>? = null
+    /* 跳转进度前进度记录 */
+    var lastBookPress: BookProgress? = null
+
+    //暂时保存跳转前进度
+    fun saveCurrentBookProcess() {
+        if (lastBookPress != null) return //避免进度条连续跳转不能覆盖最初的进度记录
+        lastBookPress = book?.let { BookProgress(it) }
+    }
+    //恢复跳转前进度
+    fun restoreLastBookProcess() {
+        lastBookPress?.let {
+            durChapterPos = it.durChapterPos
+            if (durChapterIndex != it.durChapterIndex) {
+                clearTextChapter()
+                durChapterIndex = it.durChapterIndex
+            }
+            callBack?.upContent()
+            saveRead()
+            loadContent(resetPageOffset = true) {
+                lastBookPress = null
+            }
+        }
+    }
 
     fun resetData(book: Book) {
         ReadBook.book = book
@@ -50,11 +75,12 @@ object ReadBook : CoroutineScope by MainScope() {
         chapterSize = appDb.bookChapterDao.getChapterCount(book.bookUrl)
         durChapterIndex = book.durChapterIndex
         durChapterPos = book.durChapterPos
-        isLocalBook = book.origin == BookType.local
+        isLocalBook = book.isLocal
         clearTextChapter()
         callBack?.upMenuView()
         callBack?.upPageAnim()
         upWebBook(book)
+        lastBookPress = null
         synchronized(this) {
             loadingChapters.clear()
         }
@@ -73,7 +99,7 @@ object ReadBook : CoroutineScope by MainScope() {
     }
 
     fun upWebBook(book: Book) {
-        if (book.origin == BookType.local) {
+        if (book.isLocal) {
             bookSource = null
         } else {
             appDb.bookSourceDao.getBookSource(book.origin)?.let {
@@ -290,7 +316,7 @@ object ReadBook : CoroutineScope by MainScope() {
             return
         }
         book?.let { book ->
-            if (book.isLocalBook()) return
+            if (book.isLocal) return
             if (addLoading(index)) {
                 Coroutine.async {
                     appDb.bookChapterDao.getChapter(book.bookUrl, index)?.let { chapter ->
@@ -318,7 +344,7 @@ object ReadBook : CoroutineScope by MainScope() {
         if (book != null && bookSource != null) {
             CacheBook.getOrCreate(bookSource, book).download(scope, chapter)
         } else if (book != null) {
-            val msg = if (book.isLocalBook()) "无内容" else "没有书源"
+            val msg = if (book.isLocal) "无内容" else "没有书源"
             contentLoadFinish(
                 book, chapter, "加载正文失败\n$msg", resetPageOffset = resetPageOffset
             ) {

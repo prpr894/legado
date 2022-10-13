@@ -339,6 +339,15 @@ object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
     val doublePageHorizontal: String?
         get() = appCtx.getPrefString(PreferKey.doublePageHorizontal)
 
+    val progressBarBehavior: String?
+        get() = appCtx.getPrefString(PreferKey.progressBarBehavior, "page")
+
+    var searchScope: String
+        get() = appCtx.getPrefString("searchScope") ?: ""
+        set(value) {
+            appCtx.putPrefString("searchScope", value)
+        }
+
     var searchGroup: String
         get() = appCtx.getPrefString("searchGroup") ?: ""
         set(value) {
@@ -365,15 +374,27 @@ object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
             appCtx.putPrefInt(PreferKey.bitmapCacheSize, value)
         }
 
-    var showReadTitleBarAddition : Boolean
+    var showReadTitleBarAddition: Boolean
         get() = appCtx.getPrefBoolean(PreferKey.showReadTitleAddition, true)
         set(value) {
             appCtx.putPrefBoolean(PreferKey.showReadTitleAddition, value)
         }
-    var readBarStyleFollowPage : Boolean
+    var readBarStyleFollowPage: Boolean
         get() = appCtx.getPrefBoolean(PreferKey.readBarStyleFollowPage, false)
         set(value) {
             appCtx.putPrefBoolean(PreferKey.readBarStyleFollowPage, value)
+        }
+
+    var sourceEditMaxLine: Int
+        get() {
+            val maxLine = appCtx.getPrefInt(PreferKey.sourceEditMaxLine, 99)
+            if (maxLine < 10) {
+                return 99
+            }
+            return maxLine
+        }
+        set(value) {
+            appCtx.putPrefInt(PreferKey.sourceEditMaxLine, value)
         }
 }
 

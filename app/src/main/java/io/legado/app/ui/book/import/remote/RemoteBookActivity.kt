@@ -1,4 +1,4 @@
-package io.legado.app.ui.book.remote
+package io.legado.app.ui.book.import.remote
 
 import android.annotation.SuppressLint
 import android.os.Bundle
@@ -9,10 +9,11 @@ import androidx.activity.viewModels
 import androidx.core.view.isGone
 import androidx.recyclerview.widget.LinearLayoutManager
 import io.legado.app.R
-import io.legado.app.base.VMBaseActivity
 import io.legado.app.databinding.ActivityImportBookBinding
 import io.legado.app.lib.theme.backgroundColor
+import io.legado.app.model.remote.RemoteBook
 import io.legado.app.ui.about.AppLogDialog
+import io.legado.app.ui.book.import.BaseImportBookActivity
 import io.legado.app.ui.widget.SelectActionBar
 import io.legado.app.ui.widget.dialog.WaitDialog
 import io.legado.app.utils.showDialogFragment
@@ -27,7 +28,7 @@ import java.io.File
  * @author qianfanguojin
  * @time 2022/05/12
  */
-class RemoteBookActivity : VMBaseActivity<ActivityImportBookBinding, RemoteBookViewModel>(),
+class RemoteBookActivity : BaseImportBookActivity<ActivityImportBookBinding, RemoteBookViewModel>(),
     RemoteBookAdapter.CallBack,
     SelectActionBar.CallBack {
     override val binding by viewBinding(ActivityImportBookBinding::inflate)
@@ -40,6 +41,7 @@ class RemoteBookActivity : VMBaseActivity<ActivityImportBookBinding, RemoteBookV
         initView()
         initData()
         initEvent()
+        setBookStorage()
     }
 
     private fun initView() {
@@ -50,7 +52,7 @@ class RemoteBookActivity : VMBaseActivity<ActivityImportBookBinding, RemoteBookV
         binding.selectActionBar.setCallBack(this)
     }
 
-    private fun sortCheck(sortKey: Sort) {
+    private fun sortCheck(sortKey: RemoteBookSort) {
         if (viewModel.sortKey == sortKey) {
             viewModel.sortAscending = !viewModel.sortAscending
         } else {
@@ -89,12 +91,12 @@ class RemoteBookActivity : VMBaseActivity<ActivityImportBookBinding, RemoteBookV
             R.id.menu_log -> showDialogFragment<AppLogDialog>()
             R.id.menu_sort_name -> {
                 item.isChecked = true
-                sortCheck(Sort.Name)
+                sortCheck(RemoteBookSort.Name)
                 upPath()
             }
             R.id.menu_sort_time -> {
                 item.isChecked = true
-                sortCheck(Sort.Default)
+                sortCheck(RemoteBookSort.Default)
                 upPath()
             }
         }
@@ -104,8 +106,10 @@ class RemoteBookActivity : VMBaseActivity<ActivityImportBookBinding, RemoteBookV
     override fun onPrepareOptionsMenu(menu: Menu): Boolean {
         groupMenu = menu.findItem(R.id.menu_sort)?.subMenu
         groupMenu?.setGroupCheckable(R.id.menu_group_sort, true, true)
-        groupMenu?.findItem(R.id.menu_sort_name)?.isChecked = viewModel.sortKey == Sort.Name
-        groupMenu?.findItem(R.id.menu_sort_time)?.isChecked = viewModel.sortKey == Sort.Default
+        groupMenu?.findItem(R.id.menu_sort_name)?.isChecked =
+            viewModel.sortKey == RemoteBookSort.Name
+        groupMenu?.findItem(R.id.menu_sort_time)?.isChecked =
+            viewModel.sortKey == RemoteBookSort.Default
         return super.onPrepareOptionsMenu(menu)
     }
 

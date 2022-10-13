@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Color
+import android.graphics.PorterDuff
 import android.graphics.drawable.GradientDrawable
 import android.util.AttributeSet
 import android.view.Gravity
@@ -44,6 +45,7 @@ class ReadMenu @JvmOverloads constructor(
     var cnaShowMenu: Boolean = false
     private val callBack: CallBack get() = activity as CallBack
     private val binding = ViewReadMenuBinding.inflate(LayoutInflater.from(context), this, true)
+    private var confirmSkipToChapter: Boolean = false
     private val menuTopIn: Animation by lazy {
         loadAnimation(context, R.anim.anim_readbook_top_in)
     }
@@ -188,13 +190,13 @@ class ReadMenu @JvmOverloads constructor(
         fabNightTheme.setColorFilter(textColor)
         tvPre.setTextColor(textColor)
         tvNext.setTextColor(textColor)
-        ivCatalog.setColorFilter(textColor)
+        ivCatalog.setColorFilter(textColor, PorterDuff.Mode.SRC_IN)
         tvCatalog.setTextColor(textColor)
-        ivReadAloud.setColorFilter(textColor)
+        ivReadAloud.setColorFilter(textColor, PorterDuff.Mode.SRC_IN)
         tvReadAloud.setTextColor(textColor)
-        ivFont.setColorFilter(textColor)
+        ivFont.setColorFilter(textColor, PorterDuff.Mode.SRC_IN)
         tvFont.setTextColor(textColor)
-        ivSetting.setColorFilter(textColor)
+        ivSetting.setColorFilter(textColor, PorterDuff.Mode.SRC_IN)
         tvSetting.setTextColor(textColor)
         vwBg.setOnClickListener(null)
         llBrightness.setOnClickListener(null)
@@ -369,7 +371,29 @@ class ReadMenu @JvmOverloads constructor(
         seekReadPage.setOnSeekBarChangeListener(object : SeekBarChangeListener {
 
             override fun onStopTrackingTouch(seekBar: SeekBar) {
-                ReadBook.skipToPage(seekBar.progress)
+                when (AppConfig.progressBarBehavior) {
+                    "page" -> ReadBook.skipToPage(seekBar.progress)
+                    "chapter" -> {
+                        if (confirmSkipToChapter) {
+                            ReadBook.saveCurrentBookProcess()
+                            callBack.skipToChapter(seekBar.progress)
+                        } else {
+                            context.alert("章节跳转确认", "确定要跳转章节吗？") {
+                                yesButton {
+                                    confirmSkipToChapter = true
+                                    ReadBook.saveCurrentBookProcess()
+                                    callBack.skipToChapter(seekBar.progress)
+                                }
+                                noButton {
+                                    upSeekBar()
+                                }
+                                onCancelled {
+                                    upSeekBar()
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
         })
@@ -452,13 +476,29 @@ class ReadMenu @JvmOverloads constructor(
             } else {
                 binding.tvChapterUrl.gone()
             }
-            binding.seekReadPage.max = it.pageSize.minus(1)
-            binding.seekReadPage.progress = ReadBook.durPageIndex
+            upSeekBar()
             binding.tvPre.isEnabled = ReadBook.durChapterIndex != 0
             binding.tvNext.isEnabled = ReadBook.durChapterIndex != ReadBook.chapterSize - 1
         } ?: let {
             binding.tvChapterName.gone()
             binding.tvChapterUrl.gone()
+        }
+    }
+
+    fun upSeekBar() {
+        binding.seekReadPage.apply {
+            when (AppConfig.progressBarBehavior) {
+                "page" -> {
+                    ReadBook.curTextChapter?.let {
+                        max = it.pageSize.minus(1)
+                        progress = ReadBook.durPageIndex
+                    }
+                }
+                "chapter" -> {
+                    max = ReadBook.chapterSize - 1
+                    progress = ReadBook.durChapterIndex
+                }
+            }
         }
     }
 
@@ -492,6 +532,7 @@ class ReadMenu @JvmOverloads constructor(
         fun showLogin()
         fun payAction()
         fun disableSource()
+        fun skipToChapter(index: Int)
     }
 
 }

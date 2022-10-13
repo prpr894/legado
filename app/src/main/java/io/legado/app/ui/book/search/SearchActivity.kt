@@ -26,7 +26,6 @@ import io.legado.app.lib.dialogs.alert
 import io.legado.app.lib.theme.*
 import io.legado.app.ui.book.info.BookInfoActivity
 import io.legado.app.ui.book.source.manage.BookSourceActivity
-import io.legado.app.ui.widget.recycler.LoadMoreView
 import io.legado.app.utils.*
 import io.legado.app.utils.viewbindingdelegate.viewBinding
 import kotlinx.coroutines.Dispatchers.IO
@@ -40,6 +39,7 @@ import splitties.init.appCtx
 class SearchActivity : VMBaseActivity<ActivityBookSearchBinding, SearchViewModel>(),
     BookAdapter.CallBack,
     HistoryKeyAdapter.CallBack,
+    SearchScopeDialog.Callback,
     SearchAdapter.CallBack {
 
     override val binding by viewBinding(ActivityBookSearchBinding::inflate)
@@ -51,12 +51,14 @@ class SearchActivity : VMBaseActivity<ActivityBookSearchBinding, SearchViewModel
             setHasStableIds(true)
         }
     }
+    private val searchScopeAdapter by lazy {
+        SearchScopeAdapter(this)
+    }
     private val historyKeyAdapter by lazy {
         HistoryKeyAdapter(this, this).apply {
             setHasStableIds(true)
         }
     }
-    private val loadMoreView by lazy { LoadMoreView(this) }
     private val searchView: SearchView by lazy {
         binding.titleBar.findViewById(R.id.search_view)
     }
@@ -94,7 +96,7 @@ class SearchActivity : VMBaseActivity<ActivityBookSearchBinding, SearchViewModel
     }
 
     override fun onActivityCreated(savedInstanceState: Bundle?) {
-        binding.llHistory.setBackgroundColor(backgroundColor)
+        binding.llInputHelp.setBackgroundColor(backgroundColor)
         viewModel.searchFinishCallback = searchFinishCallback
         initRecyclerView()
         initSearchView()
@@ -160,7 +162,7 @@ class SearchActivity : VMBaseActivity<ActivityBookSearchBinding, SearchViewModel
                     viewModel.searchKey = ""
                     viewModel.search(it)
                 }
-                openOrCloseHistory(false)
+                visibleInputHelp(false)
                 return true
             }
 
@@ -174,16 +176,18 @@ class SearchActivity : VMBaseActivity<ActivityBookSearchBinding, SearchViewModel
             if (!hasFocus && searchView.query.toString().trim().isEmpty()) {
                 finish()
             } else {
-                openOrCloseHistory(hasFocus)
+                visibleInputHelp(hasFocus)
             }
         }
-        openOrCloseHistory(true)
+        visibleInputHelp(true)
     }
 
     private fun initRecyclerView() {
         binding.recyclerView.setEdgeEffectColor(primaryColor)
+        binding.rvSearchScope.setEdgeEffectColor(primaryColor)
         binding.rvBookshelfSearch.setEdgeEffectColor(primaryColor)
         binding.rvHistoryKey.setEdgeEffectColor(primaryColor)
+        binding.rvSearchScope.adapter = searchScopeAdapter
         binding.rvBookshelfSearch.layoutManager = FlexboxLayoutManager(this)
         binding.rvBookshelfSearch.adapter = bookAdapter
         binding.rvHistoryKey.layoutManager = FlexboxLayoutManager(this)
@@ -226,10 +230,12 @@ class SearchActivity : VMBaseActivity<ActivityBookSearchBinding, SearchViewModel
             viewModel.stop()
             binding.refreshProgressBar.isAutoLoading = false
         }
-        binding.tvClearHistory.setOnClickListener { viewModel.clearHistory() }
+        binding.tvToggleSearchScope.setOnClickListener { alertSearchScope() }
+        binding.tvClearHistory.setOnClickListener { alertClearHistory() }
     }
 
     private fun initData() {
+        searchScopeAdapter.setItems(viewModel.searchScope.getShowNames())
         viewModel.isSearchLiveData.observe(this) {
             if (it) {
                 startSearch()
@@ -253,6 +259,11 @@ class SearchActivity : VMBaseActivity<ActivityBookSearchBinding, SearchViewModel
     }
 
     private fun receiptIntent(intent: Intent? = null) {
+        val searchScope = intent?.getStringExtra("searchScope")
+        searchScope?.let {
+            viewModel.searchScope.scope = searchScope
+            searchScopeAdapter.setItems(viewModel.searchScope.getShowNames())
+        }
         val key = intent?.getStringExtra("key")
         if (key.isNullOrBlank()) {
             searchView.findViewById<TextView>(androidx.appcompat.R.id.search_src_text)
@@ -271,21 +282,21 @@ class SearchActivity : VMBaseActivity<ActivityBookSearchBinding, SearchViewModel
         }
         if (viewModel.isSearchLiveData.value == false
             && viewModel.searchKey.isNotEmpty()
-            && loadMoreView.hasMore
         ) {
             viewModel.search("")
         }
     }
 
     /**
-     * 打开关闭历史界面
+     * 打开关闭输入帮助
      */
-    private fun openOrCloseHistory(open: Boolean) {
-        if (open) {
+    private fun visibleInputHelp(visible: Boolean) {
+        if (visible) {
             upHistory(searchView.query.toString())
-            binding.llHistory.visibility = VISIBLE
+            binding.llInputHelp.visibility = VISIBLE
+            searchScopeAdapter.setItems(viewModel.searchScope.getShowNames())
         } else {
-            binding.llHistory.visibility = GONE
+            binding.llInputHelp.visibility = GONE
         }
     }
 
@@ -364,7 +375,6 @@ class SearchActivity : VMBaseActivity<ActivityBookSearchBinding, SearchViewModel
      */
     private fun searchFinally() {
         binding.refreshProgressBar.isAutoLoading = false
-        loadMoreView.startLoad()
         binding.fbStop.invisible()
     }
 
@@ -405,10 +415,32 @@ class SearchActivity : VMBaseActivity<ActivityBookSearchBinding, SearchViewModel
         }
     }
 
+    /**
+     * 删除搜索记录
+     */
     override fun deleteHistory(searchKeyword: SearchKeyword) {
         viewModel.deleteHistory(searchKeyword)
     }
 
+
+    override fun onSearchScopeOk(searchScope: SearchScope) {
+        viewModel.searchScope = searchScope
+        searchScopeAdapter.setItems(searchScope.getShowNames())
+    }
+
+    private fun alertSearchScope() {
+        showDialogFragment<SearchScopeDialog>()
+    }
+
+    private fun alertClearHistory() {
+        alert(R.string.draw) {
+            setMessage(R.string.sure_clear_search_history)
+            yesButton {
+                viewModel.clearHistory()
+            }
+            noButton()
+        }
+    }
 
     companion object {
 

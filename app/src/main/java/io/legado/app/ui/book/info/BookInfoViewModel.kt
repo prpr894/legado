@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import io.legado.app.R
 import io.legado.app.base.BaseViewModel
 import io.legado.app.constant.AppLog
+import io.legado.app.constant.BookSourceType
 import io.legado.app.constant.BookType
 import io.legado.app.constant.EventBus
 import io.legado.app.data.appDb
@@ -14,13 +15,18 @@ import io.legado.app.data.entities.Book
 import io.legado.app.data.entities.BookChapter
 import io.legado.app.data.entities.BookSource
 import io.legado.app.exception.NoStackTraceException
-import io.legado.app.help.BookHelp
+import io.legado.app.help.book.BookHelp
+import io.legado.app.help.book.getRemoteUrl
+import io.legado.app.help.book.isLocal
 import io.legado.app.help.coroutine.Coroutine
+import io.legado.app.lib.webdav.ObjectNotFoundException
 import io.legado.app.model.BookCover
 import io.legado.app.model.ReadBook
 import io.legado.app.model.analyzeRule.AnalyzeRule
 import io.legado.app.model.localBook.LocalBook
+import io.legado.app.model.remote.RemoteBookWebDav
 import io.legado.app.model.webBook.WebBook
+import io.legado.app.utils.isContentScheme
 import io.legado.app.utils.postEvent
 import io.legado.app.utils.toastOnUi
 import kotlinx.coroutines.CoroutineScope
@@ -32,7 +38,8 @@ class BookInfoViewModel(application: Application) : BaseViewModel(application) {
     var inBookshelf = false
     var bookSource: BookSource? = null
     private var changeSourceCoroutine: Coroutine<*>? = null
-    var isImportBookOnLine = false
+    val isImportBookOnLine: Boolean
+        get() = bookSource?.bookSourceType == BookSourceType.file
 
     fun initData(intent: Intent) {
         execute {
@@ -60,7 +67,7 @@ class BookInfoViewModel(application: Application) : BaseViewModel(application) {
         }
     }
 
-    fun refreshData(intent: Intent) {
+    fun upBook(intent: Intent) {
         execute {
             val name = intent.getStringExtra("name") ?: ""
             val author = intent.getStringExtra("author") ?: ""
@@ -74,9 +81,8 @@ class BookInfoViewModel(application: Application) : BaseViewModel(application) {
         execute {
             bookData.postValue(book)
             upCoverByRule(book)
-            bookSource = if (book.isLocalBook()) null else
+            bookSource = if (book.isLocal) null else
                 appDb.bookSourceDao.getBookSource(book.origin)
-            isImportBookOnLine = (bookSource?.bookSourceType ?: BookType.local) == BookType.file
             if (book.tocUrl.isEmpty()) {
                 loadBookInfo(book)
             } else if (isImportBookOnLine) {
@@ -106,13 +112,42 @@ class BookInfoViewModel(application: Application) : BaseViewModel(application) {
         }
     }
 
+    fun refreshBook(book: Book) {
+        execute {
+            if (book.isLocal) {
+                book.tocUrl = ""
+                book.getRemoteUrl()?.let {
+                    val remoteBook = RemoteBookWebDav.getRemoteBook(it)
+                    if (remoteBook == null) {
+                        book.origin = BookType.localTag
+                    } else if (remoteBook.lastModify > book.lastCheckTime) {
+                        val uri = RemoteBookWebDav.downloadRemoteBook(remoteBook)
+                        book.bookUrl = if (uri.isContentScheme()) uri.toString() else uri.path!!
+                        book.lastCheckTime = remoteBook.lastModify
+                    }
+                }
+            }
+        }.onError {
+            when (it) {
+                is ObjectNotFoundException -> {
+                    book.origin = BookType.localTag
+                }
+                else -> {
+                    AppLog.put("下载远程书籍<${book.name}>失败", it)
+                }
+            }
+        }.onFinally {
+            loadBookInfo(book, false)
+        }
+    }
+
     fun loadBookInfo(
         book: Book,
         canReName: Boolean = true,
         scope: CoroutineScope = viewModelScope
     ) {
         execute(scope) {
-            if (book.isLocalBook()) {
+            if (book.isLocal) {
                 loadChapter(book, scope)
             } else {
                 bookSource?.let { bookSource ->
@@ -143,7 +178,7 @@ class BookInfoViewModel(application: Application) : BaseViewModel(application) {
         scope: CoroutineScope = viewModelScope
     ) {
         execute(scope) {
-            if (book.isLocalBook()) {
+            if (book.isLocal) {
                 LocalBook.getChapterList(book).let {
                     appDb.bookDao.update(book)
                     appDb.bookChapterDao.delByBook(book.bookUrl)
@@ -277,7 +312,7 @@ class BookInfoViewModel(application: Application) : BaseViewModel(application) {
             bookData.value?.let {
                 it.delete()
                 inBookshelf = false
-                if (it.isLocalBook()) {
+                if (it.isLocal) {
                     LocalBook.deleteBook(it, deleteOriginal)
                 }
             }
@@ -306,7 +341,6 @@ class BookInfoViewModel(application: Application) : BaseViewModel(application) {
 
     fun changeToLocalBook(bookUrl: String) {
         appDb.bookDao.getBook(bookUrl)?.let { localBook ->
-            isImportBookOnLine = false
             inBookshelf = true
             LocalBook.mergeBook(localBook, bookData.value).let {
                 bookData.postValue(it)

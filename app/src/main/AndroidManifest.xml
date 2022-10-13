@@ -12,6 +12,7 @@
     <uses-permission android:name="android.permission.DOWNLOAD_WITHOUT_NOTIFICATION" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         tools:ignore="ScopedStorage" />
@@ -111,6 +112,7 @@
         <!-- 主界面 -->
         <activity
             android:name=".ui.main.MainActivity"
+            android:exported="true"
             android:configChanges="locale|keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout|uiMode"
             android:alwaysRetainTaskState="true"
             android:launchMode="singleTask" />
@@ -200,7 +202,7 @@
             android:screenOrientation="behind" />
         <!-- txt目录规则管理 -->
         <activity
-            android:name=".ui.book.local.rule.TxtTocRuleActivity"
+            android:name=".ui.book.import.local.rule.TxtTocRuleActivity"
             android:launchMode="singleTop"
             android:screenOrientation="behind" />
         <!-- 替换规则界面 -->
@@ -240,11 +242,11 @@
             android:launchMode="singleTop" />
         <!-- 导入书籍 -->
         <activity
-            android:name=".ui.book.local.ImportBookActivity"
+            android:name=".ui.book.import.local.ImportBookActivity"
             android:launchMode="singleTop" />
         <!-- 添加远程 -->
         <activity
-            android:name=".ui.book.remote.RemoteBookActivity"
+            android:name=".ui.book.import.remote.RemoteBookActivity"
             android:launchMode="singleTop" />
         <!-- 发现界面 -->
         <activity

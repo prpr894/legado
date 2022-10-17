@@ -190,6 +190,12 @@ object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
             appCtx.putPrefInt(PreferKey.ttsSpeechRate, value)
         }
 
+    var ttsTimer: Int
+        get() = appCtx.getPrefInt(PreferKey.ttsTimer, 0)
+        set(value) {
+            appCtx.putPrefInt(PreferKey.ttsTimer, value)
+        }
+
     val speechRatePlay: Int get() = if (ttsFlowSys) defaultSpeechRate else ttsSpeechRate
 
     var chineseConverterType: Int
@@ -358,6 +364,12 @@ object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
         get() = appCtx.getPrefInt(PreferKey.pageTouchSlop, 0)
         set(value) {
             appCtx.putPrefInt(PreferKey.pageTouchSlop, value)
+        }
+
+    var bookshelfSort: Int
+        get() = appCtx.getPrefInt(PreferKey.bookshelfSort, 0)
+        set(value) {
+            appCtx.putPrefInt(PreferKey.bookshelfSort, value)
         }
 
     private fun getPrefUserAgent(): String {

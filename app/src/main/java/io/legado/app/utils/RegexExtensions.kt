@@ -1,5 +1,6 @@
 package io.legado.app.utils
 
+import android.util.Log
 import androidx.core.os.postDelayed
 import com.script.SimpleBindings
 import io.legado.app.constant.AppConst
@@ -15,30 +16,31 @@ private val handler by lazy { buildMainHandler() }
 
 /**
  * 带有超时检测的正则替换
- * 超时重启apk,线程不能强制结束,只能重启apk
  */
 suspend fun CharSequence.replace(regex: Regex, replacement: String, timeout: Long): String {
-    val charSequence = this
+    val charSequence = this@replace
+    val isJs = replacement.startsWith("@js:")
+    val replacement1 = if (isJs) replacement.substring(4) else replacement
     return suspendCancellableCoroutine { block ->
         val coroutine = Coroutine.async {
             try {
-                if (replacement.startsWith("@js:")) {
-                    val js = replacement.substring(4)
-                    val pattern = regex.toPattern()
-                    val matcher = pattern.matcher(charSequence)
-                    val stringBuffer = StringBuffer()
-                    while (matcher.find()) {
+                val pattern = regex.toPattern()
+                val matcher = pattern.matcher(charSequence)
+                val stringBuffer = StringBuffer()
+                while (matcher.find()) {
+                    if (isJs) {
                         val bindings = SimpleBindings()
-                        bindings["result"] = matcher.group(1)
-                        val jsResult = AppConst.SCRIPT_ENGINE.eval(js, bindings).toString()
+                        bindings["result"] = matcher.group()
+                        val jsResult =
+                            AppConst.SCRIPT_ENGINE.eval(replacement1, bindings).toString()
                         matcher.appendReplacement(stringBuffer, jsResult)
+                    } else {
+                        matcher.appendReplacement(stringBuffer, replacement1)
                     }
-                    matcher.appendTail(stringBuffer)
-                    block.resume(stringBuffer.toString())
-                } else {
-                    val result = regex.replace(charSequence, replacement)
-                    block.resume(result)
                 }
+                matcher.appendTail(stringBuffer)
+                Log.e("regex", "end")
+                block.resume(stringBuffer.toString())
             } catch (e: Exception) {
                 block.resumeWithException(e)
             }

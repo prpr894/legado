@@ -28,6 +28,8 @@ import io.legado.app.help.http.cronet.CronetLoader
 import io.legado.app.model.BookCover
 import io.legado.app.utils.defaultSharedPreferences
 import io.legado.app.utils.getPrefBoolean
+import kotlinx.coroutines.launch
+import splitties.init.appCtx
 import splitties.systemservices.notificationManager
 import java.util.concurrent.TimeUnit
 
@@ -49,6 +51,7 @@ class App : MultiDexApplication() {
         registerActivityLifecycleCallbacks(LifecycleHelp)
         defaultSharedPreferences.registerOnSharedPreferenceChangeListener(AppConfig)
         Coroutine.async {
+            launch { installGmsTlsProvider(appCtx) }
             //初始化封面
             BookCover.toString()
             //清除过期数据
@@ -82,6 +85,31 @@ class App : MultiDexApplication() {
             applyDayNight(this)
         }
         oldConfig = Configuration(newConfig)
+    }
+
+    /**
+     * 尝试在安装了GMS的设备上(GMS或者MicroG)使用GMS内置的Conscrypt
+     * 作为首选JCE提供程序，而使Okhttp在低版本Android上
+     * 能够启用TLSv1.3
+     * https://f-droid.org/zh_Hans/2020/05/29/android-updates-and-tls-connections.html
+     * https://developer.android.google.cn/reference/javax/net/ssl/SSLSocket
+     *
+     * @param context
+     * @return
+     */
+    private fun installGmsTlsProvider(context: Context) {
+        try {
+            val gms = context.createPackageContext(
+                "com.google.android.gms",
+                CONTEXT_INCLUDE_CODE or CONTEXT_IGNORE_SECURITY
+            )
+            gms.classLoader
+                .loadClass("com.google.android.gms.common.security.ProviderInstallerImpl")
+                .getMethod("insertProvider", Context::class.java)
+                .invoke(null, gms)
+        } catch (e: java.lang.Exception) {
+            e.printStackTrace()
+        }
     }
 
     /**

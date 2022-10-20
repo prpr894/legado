@@ -103,7 +103,7 @@ data class BookChapter(
                             displayTitle.replace(
                                 item.pattern.toRegex(),
                                 item.replacement,
-                                item.getValidTimeoutMillisecond()
+                                item.timeoutMillisecond
                             )
                         } else {
                             displayTitle.replace(item.pattern, item.replacement)

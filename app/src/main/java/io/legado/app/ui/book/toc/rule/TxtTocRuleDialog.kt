@@ -1,4 +1,4 @@
-package io.legado.app.ui.book.read.config
+package io.legado.app.ui.book.toc.rule
 
 import android.annotation.SuppressLint
 import android.content.Context
@@ -18,7 +18,6 @@ import io.legado.app.data.appDb
 import io.legado.app.data.entities.TxtTocRule
 import io.legado.app.databinding.DialogEditTextBinding
 import io.legado.app.databinding.DialogTocRegexBinding
-import io.legado.app.databinding.DialogTocRegexEditBinding
 import io.legado.app.databinding.ItemTocRegexBinding
 import io.legado.app.lib.dialogs.alert
 import io.legado.app.lib.theme.backgroundColor
@@ -33,8 +32,12 @@ import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.launch
 
-class TocRegexDialog() : BaseDialogFragment(R.layout.dialog_toc_regex),
-    Toolbar.OnMenuItemClickListener {
+/**
+ * txt目录规则
+ */
+class TxtTocRuleDialog() : BaseDialogFragment(R.layout.dialog_toc_regex),
+    Toolbar.OnMenuItemClickListener,
+    TxtTocRuleEditDialog.Callback {
 
     constructor(tocRegex: String?) : this() {
         arguments = Bundle().apply {
@@ -43,7 +46,7 @@ class TocRegexDialog() : BaseDialogFragment(R.layout.dialog_toc_regex),
     }
 
     private val importTocRuleKey = "tocRuleUrl"
-    private val viewModel: TocRegexViewModel by viewModels()
+    private val viewModel: TxtTocRuleViewModel by viewModels()
     private val binding by viewBinding(DialogTocRegexBinding::bind)
     private val adapter by lazy { TocRegexAdapter(requireContext()) }
     var selectedName: String? = null
@@ -113,7 +116,7 @@ class TocRegexDialog() : BaseDialogFragment(R.layout.dialog_toc_regex),
 
     override fun onMenuItemClick(item: MenuItem?): Boolean {
         when (item?.itemId) {
-            R.id.menu_add -> editRule()
+            R.id.menu_add -> showDialogFragment(TxtTocRuleEditDialog())
             R.id.menu_default -> viewModel.importDefault()
             R.id.menu_import -> showImportDialog()
             R.id.menu_split_long_chapter -> {
@@ -123,6 +126,10 @@ class TocRegexDialog() : BaseDialogFragment(R.layout.dialog_toc_regex),
             }
         }
         return false
+    }
+
+    override fun saveTxtTocRule(txtTocRule: TxtTocRule) {
+        viewModel.save(txtTocRule)
     }
 
     @SuppressLint("InflateParams")
@@ -155,29 +162,6 @@ class TocRegexDialog() : BaseDialogFragment(R.layout.dialog_toc_regex),
                         aCache.put(importTocRuleKey, cacheUrls.joinToString(","))
                     }
                     showDialogFragment(ImportTxtTocRuleDialog(it))
-                }
-            }
-            cancelButton()
-        }
-    }
-
-    @SuppressLint("InflateParams")
-    private fun editRule(rule: TxtTocRule? = null) {
-        val tocRule = rule?.copy() ?: TxtTocRule()
-        requireContext().alert(titleResource = R.string.txt_toc_regex) {
-            val alertBinding = DialogTocRegexEditBinding.inflate(layoutInflater)
-            alertBinding.apply {
-                tvRuleName.setText(tocRule.name)
-                tvRuleRegex.setText(tocRule.rule)
-                tvRuleExample.setText(tocRule.example)
-            }
-            customView { alertBinding.root }
-            okButton {
-                alertBinding.apply {
-                    tocRule.name = tvRuleName.text.toString()
-                    tocRule.rule = tvRuleRegex.text.toString()
-                    tocRule.example = tvRuleExample.text.toString()
-                    viewModel.saveRule(tocRule)
                 }
             }
             cancelButton()
@@ -230,7 +214,7 @@ class TocRegexDialog() : BaseDialogFragment(R.layout.dialog_toc_regex),
                     }
                 }
                 ivEdit.setOnClickListener {
-                    editRule(getItem(holder.layoutPosition))
+                    showDialogFragment(TxtTocRuleEditDialog(getItem(holder.layoutPosition)?.id))
                 }
                 ivDelete.setOnClickListener {
                     getItem(holder.layoutPosition)?.let { item ->

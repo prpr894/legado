@@ -57,6 +57,7 @@ import io.legado.app.ui.book.searchContent.SearchContentActivity
 import io.legado.app.ui.book.searchContent.SearchResult
 import io.legado.app.ui.book.source.edit.BookSourceEditActivity
 import io.legado.app.ui.book.toc.TocActivityResult
+import io.legado.app.ui.book.toc.rule.TxtTocRuleDialog
 import io.legado.app.ui.browser.WebViewActivity
 import io.legado.app.ui.dict.DictDialog
 import io.legado.app.ui.document.HandleFileContract
@@ -86,7 +87,7 @@ class ReadBookActivity : BaseReadBookActivity(),
     ChangeChapterSourceDialog.CallBack,
     ReadBook.CallBack,
     AutoReadDialog.CallBack,
-    TocRegexDialog.CallBack,
+    TxtTocRuleDialog.CallBack,
     ColorPickerDialogListener {
 
     private val tocActivity =
@@ -166,6 +167,7 @@ class ReadBookActivity : BaseReadBookActivity(),
     private val menuLayoutIsVisible get() = bottomDialog > 0 || binding.readMenu.isVisible
     private val nextPageRunnable by lazy { Runnable { mouseWheelPage(PageDirection.NEXT) } }
     private val prevPageRunnable by lazy { Runnable { mouseWheelPage(PageDirection.PREV) } }
+    private var isFirstResume = true
 
     //恢复跳转前进度对话框的交互结果
     private var confirmRestoreProcess: Boolean? = null
@@ -202,14 +204,23 @@ class ReadBookActivity : BaseReadBookActivity(),
     override fun onResume() {
         super.onResume()
         ReadBook.readStartTime = System.currentTimeMillis()
-        //web端阅读时，app处于阅读界面，本地记录会覆盖web保存的进度，在此处恢复
-        ReadBook.webBookProgress?.let {
-            ReadBook.setProgress(it)
-            ReadBook.webBookProgress = null
+        val bookUrl = intent.getStringExtra("bookUrl")
+        if (!isFirstResume && ReadBook.book?.bookUrl != bookUrl) {
+            ReadBook.callBack = this
+            viewModel.initData(intent)
+        } else {
+            //web端阅读时，app处于阅读界面，本地记录会覆盖web保存的进度，在此处恢复
+            ReadBook.webBookProgress?.let {
+                ReadBook.setProgress(it)
+                ReadBook.webBookProgress = null
+            }
         }
         upSystemUiVisibility()
         registerReceiver(timeBatteryReceiver, timeBatteryReceiver.filter)
         binding.readView.upTime()
+        if (isFirstResume) {
+            isFirstResume = false
+        }
     }
 
     override fun onPause() {
@@ -383,7 +394,7 @@ class ReadBookActivity : BaseReadBookActivity(),
             }
             R.id.menu_log -> showDialogFragment<AppLogDialog>()
             R.id.menu_toc_regex -> showDialogFragment(
-                TocRegexDialog(ReadBook.book?.tocUrl)
+                TxtTocRuleDialog(ReadBook.book?.tocUrl)
             )
             R.id.menu_reverse_content -> ReadBook.book?.let {
                 viewModel.reverseContent(it)
@@ -784,6 +795,16 @@ class ReadBookActivity : BaseReadBookActivity(),
         }
     }
 
+    override fun exit() {
+        ReadBook.book?.let {
+            if (!ReadBook.inBookshelf) {
+                viewModel.removeFromBookshelf { super.finish() }
+            } else {
+                super.finish()
+            }
+        } ?: super.finish()
+    }
+
     /**
      * 页面改变
      */
@@ -1019,8 +1040,8 @@ class ReadBookActivity : BaseReadBookActivity(),
                     confirmRestoreProcess = false
                 }
                 onCancelled {
-                   ReadBook.lastBookPress = null
-                   confirmRestoreProcess = false
+                    ReadBook.lastBookPress = null
+                    confirmRestoreProcess = false
                 }
             }
         }

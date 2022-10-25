@@ -9,7 +9,6 @@ import android.content.IntentFilter
 import android.graphics.BitmapFactory
 import android.media.AudioManager
 import android.os.Bundle
-import android.os.PowerManager
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
 import androidx.annotation.CallSuper
@@ -29,7 +28,6 @@ import io.legado.app.ui.book.read.page.entities.TextChapter
 import io.legado.app.utils.*
 import kotlinx.coroutines.*
 import splitties.systemservices.audioManager
-import splitties.systemservices.powerManager
 
 /**
  * 朗读服务
@@ -55,9 +53,6 @@ abstract class BaseReadAloudService : BaseService(),
         }
     }
 
-    private val wakeLock by lazy {
-        powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "legado:readAloud")
-    }
     private val mFocusRequest: AudioFocusRequestCompat by lazy {
         MediaHelp.buildAudioFocusRequestCompat(this)
     }
@@ -83,7 +78,6 @@ abstract class BaseReadAloudService : BaseService(),
     @SuppressLint("WakelockTimeout")
     override fun onCreate() {
         super.onCreate()
-        wakeLock.acquire()
         isRun = true
         pause = false
         observeLiveBus()
@@ -105,7 +99,6 @@ abstract class BaseReadAloudService : BaseService(),
 
     override fun onDestroy() {
         super.onDestroy()
-        wakeLock.release()
         isRun = false
         pause = true
         abandonFocus()
@@ -176,6 +169,7 @@ abstract class BaseReadAloudService : BaseService(),
         doDs()
     }
 
+    @SuppressLint("WakelockTimeout")
     @CallSuper
     open fun resumeReadAloud() {
         pause = false

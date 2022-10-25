@@ -2,7 +2,6 @@ package io.legado.app.ui.book.audio
 
 import android.annotation.SuppressLint
 import android.app.Activity
-import android.graphics.Color
 import android.icu.text.SimpleDateFormat
 import android.os.Build
 import android.os.Bundle
@@ -79,7 +78,7 @@ class AudioPlayActivity :
         }
 
     override fun onActivityCreated(savedInstanceState: Bundle?) {
-        binding.titleBar.setBackgroundColor(Color.argb(60, 0, 0, 0))
+        binding.titleBar.setBackgroundResource(R.color.transparent)
         AudioPlay.titleData.observe(this) {
             binding.titleBar.title = it
         }
@@ -270,6 +269,10 @@ class AudioPlayActivity :
         }
         observeEventSticky<String>(EventBus.AUDIO_SUB_TITLE) {
             binding.tvSubTitle.text = it
+            AudioPlay.book?.let { book ->
+                binding.ivSkipPrevious.isEnabled = book.durChapterIndex > 0
+                binding.ivSkipNext.isEnabled = book.durChapterIndex < book.totalChapterNum - 1
+            }
         }
         observeEventSticky<Int>(EventBus.AUDIO_SIZE) {
             binding.playerProgress.max = it

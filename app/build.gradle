@@ -105,7 +105,6 @@ android {
             }
             applicationIdSuffix '.release'
 
-            //混淆还是有点问题, exoplayer的库出问题了
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
@@ -198,7 +197,7 @@ dependencies {
     implementation('androidx.webkit:webkit:1.5.0')
 
     //google
-    implementation('com.google.android.material:material:1.6.1')
+    implementation('com.google.android.material:material:1.7.0')
     implementation('com.google.android.flexbox:flexbox:3.0.0')
     implementation('com.google.code.gson:gson:2.9.1')
 
@@ -288,7 +287,7 @@ dependencies {
 
     //加解密类库,有些书源使用
     //noinspection GradleDependency,GradlePackageUpdate
-    implementation('cn.hutool:hutool-crypto:5.8.8')
+    implementation('cn.hutool:hutool-crypto:5.8.9')
 
     //firebase, 崩溃统计和性能统计, 会导致共存版本崩溃
     //implementation platform('com.google.firebase:firebase-bom:30.0.1')

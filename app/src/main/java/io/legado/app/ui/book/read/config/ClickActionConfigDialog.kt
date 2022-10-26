@@ -16,7 +16,9 @@ import io.legado.app.utils.getCompatColor
 import io.legado.app.utils.putPrefInt
 import io.legado.app.utils.viewbindingdelegate.viewBinding
 
-
+/**
+ * 点击区域设置
+ */
 class ClickActionConfigDialog : BaseDialogFragment(R.layout.dialog_click_action_config) {
     private val binding by viewBinding(DialogClickActionConfigBinding::bind)
     private val actions by lazy {
@@ -29,6 +31,9 @@ class ClickActionConfigDialog : BaseDialogFragment(R.layout.dialog_click_action_
             this[4] = getString(R.string.previous_chapter)
             this[5] = getString(R.string.read_aloud_prev_paragraph)
             this[6] = getString(R.string.read_aloud_next_paragraph)
+            this[7] = getString(R.string.bookmark_add)
+            this[8] = getString(R.string.edit_content)
+            this[9] = getString(R.string.replace_rule)
         }
     }
 
@@ -57,6 +62,7 @@ class ClickActionConfigDialog : BaseDialogFragment(R.layout.dialog_click_action_
         tvTopCenter.text = actions[AppConfig.clickActionTC]
         tvTopRight.text = actions[AppConfig.clickActionTR]
         tvMiddleLeft.text = actions[AppConfig.clickActionML]
+        tvMiddleCenter.text = actions[AppConfig.clickActionMC]
         tvMiddleRight.text = actions[AppConfig.clickActionMR]
         tvBottomLeft.text = actions[AppConfig.clickActionBL]
         tvBottomCenter.text = actions[AppConfig.clickActionBC]
@@ -88,6 +94,12 @@ class ClickActionConfigDialog : BaseDialogFragment(R.layout.dialog_click_action_
         binding.tvMiddleLeft.setOnClickListener {
             selectAction { action ->
                 putPrefInt(PreferKey.clickActionML, action)
+                (it as? TextView)?.text = actions[action]
+            }
+        }
+        binding.tvMiddleCenter.setOnClickListener {
+            selectAction { action ->
+                putPrefInt(PreferKey.clickActionMC, action)
                 (it as? TextView)?.text = actions[action]
             }
         }
@@ -124,6 +136,11 @@ class ClickActionConfigDialog : BaseDialogFragment(R.layout.dialog_click_action_
         ) { _, index ->
             success.invoke(actions.keys.toList()[index])
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        AppConfig.detectClickArea()
     }
 
 }

@@ -6,15 +6,18 @@ import io.legado.app.data.entities.Book
 import io.legado.app.data.entities.BookChapter
 import io.legado.app.data.entities.BookSource
 import io.legado.app.data.entities.rule.TocRule
+import io.legado.app.exception.ConcurrentException
 import io.legado.app.exception.NoStackTraceException
 import io.legado.app.exception.TocEmptyException
 import io.legado.app.help.book.ContentProcessor
+import io.legado.app.help.http.StrResponse
 import io.legado.app.model.Debug
 import io.legado.app.model.analyzeRule.AnalyzeRule
 import io.legado.app.model.analyzeRule.AnalyzeUrl
 import io.legado.app.utils.isTrue
 import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import splitties.init.appCtx
@@ -61,12 +64,13 @@ object BookChapterList {
                 var nextUrl = chapterData.second[0]
                 while (nextUrl.isNotEmpty() && !nextUrlList.contains(nextUrl)) {
                     nextUrlList.add(nextUrl)
-                    AnalyzeUrl(
+                    val res = AnalyzeUrl(
                         mUrl = nextUrl,
                         source = bookSource,
                         ruleData = book,
                         headerMapF = bookSource.getHeaderMap()
-                    ).getStrResponseAwait().body?.let { nextBody ->
+                    ).getStrResponseConcurrentAwait() //控制并发访问
+                    res.body?.let { nextBody ->
                         chapterData = analyzeChapterList(
                             book, nextUrl, nextUrl,
                             nextBody, tocRule, listRule, bookSource
@@ -83,13 +87,12 @@ object BookChapterList {
                     val asyncArray = Array(chapterData.second.size) {
                         async(IO) {
                             val urlStr = chapterData.second[it]
-                            val analyzeUrl = AnalyzeUrl(
+                            val res = AnalyzeUrl(
                                 mUrl = urlStr,
                                 source = bookSource,
                                 ruleData = book,
                                 headerMapF = bookSource.getHeaderMap()
-                            )
-                            val res = analyzeUrl.getStrResponseAwait()
+                            ).getStrResponseConcurrentAwait() //控制并发访问
                             analyzeChapterList(
                                 book, urlStr, res.url,
                                 res.body!!, tocRule, listRule, bookSource, false

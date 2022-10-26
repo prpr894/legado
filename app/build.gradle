@@ -188,8 +188,8 @@ dependencies {
     //androidX
     implementation('androidx.core:core-ktx:1.9.0')
     implementation('androidx.appcompat:appcompat:1.5.1')
-    implementation('androidx.activity:activity-ktx:1.6.0')
-    implementation('androidx.fragment:fragment-ktx:1.5.3')
+    implementation('androidx.activity:activity-ktx:1.6.1')
+    implementation('androidx.fragment:fragment-ktx:1.5.4')
     implementation('androidx.preference:preference-ktx:1.2.0')
     implementation('androidx.constraintlayout:constraintlayout:2.1.4')
     implementation('androidx.swiperefreshlayout:swiperefreshlayout:1.1.0')
@@ -199,7 +199,7 @@ dependencies {
     //google
     implementation('com.google.android.material:material:1.7.0')
     implementation('com.google.android.flexbox:flexbox:3.0.0')
-    implementation('com.google.code.gson:gson:2.9.1')
+    implementation('com.google.code.gson:gson:2.10')
 
     //lifecycle
     def lifecycle_version = '2.5.1'
@@ -208,7 +208,7 @@ dependencies {
 
     //compose
     // Integration with activities
-    implementation 'androidx.activity:activity-compose:1.6.0'
+    implementation 'androidx.activity:activity-compose:1.6.1'
     // Compose Material Design
     implementation "androidx.compose.material:material:$compose_version"
     // Animations

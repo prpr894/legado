@@ -413,14 +413,20 @@ object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
 
     var sourceEditMaxLine: Int
         get() {
-            val maxLine = appCtx.getPrefInt(PreferKey.sourceEditMaxLine, 99)
+            val maxLine = appCtx.getPrefInt(PreferKey.sourceEditMaxLine, Int.MAX_VALUE)
             if (maxLine < 10) {
-                return 99
+                return Int.MAX_VALUE
             }
             return maxLine
         }
         set(value) {
             appCtx.putPrefInt(PreferKey.sourceEditMaxLine, value)
+        }
+
+    var audioPlayUseWakeLock: Boolean
+        get() = appCtx.getPrefBoolean(PreferKey.audioPlayWakeLock)
+        set(value) {
+            appCtx.putPrefBoolean(PreferKey.audioPlayWakeLock, value)
         }
 
     fun detectClickArea() {

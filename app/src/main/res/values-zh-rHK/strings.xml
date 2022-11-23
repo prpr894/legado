@@ -365,7 +365,7 @@
     <string name="status_bar_immersion">狀態欄顏色透明</string>
     <string name="imm_navigation_bar">沉浸式导航栏</string>
     <string name="imm_navigation_bar_s">导航栏颜色透明</string>
-    <string name="add_to_shelf">放入書架</string>
+    <string name="add_to_bookshelf">放入書架</string>
     <string name="continue_read">繼續閲讀</string>
     <string name="cover_path">封面地址</string>
     <string name="page_anim_cover">覆蓋</string>
@@ -434,6 +434,7 @@
     <string name="r_image">圖片 url 規則 (ruleImage)</string>
     <string name="r_content">內容規則 (ruleContent)</string>
     <string name="r_style">樣式 (style)</string>
+    <string name="r_inject_js">注入Js(injectJs)</string>
     <string name="r_link">鏈接規則 (ruleLink)</string>
     <string name="check_key_word">校驗關鍵字(checkKeyWord)</string>
     <string name="rule_actions">操作(actions)</string>

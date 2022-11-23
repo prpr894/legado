@@ -215,6 +215,7 @@ class ReadRssActivity : VMBaseActivity<ActivityRssReadBinding, ReadRssViewModel>
     }
 
     override fun upStarMenu() {
+        starMenuItem?.isVisible = viewModel.rssArticle != null
         if (viewModel.rssStar != null) {
             starMenuItem?.setIcon(R.drawable.ic_star)
             starMenuItem?.setTitle(R.string.in_favorites)
@@ -275,7 +276,11 @@ class ReadRssActivity : VMBaseActivity<ActivityRssReadBinding, ReadRssViewModel>
             binding.webView.evaluateJavascript("document.documentElement.outerHTML") {
                 val html = StringEscapeUtils.unescapeJson(it)
                     .replace("^\"|\"$".toRegex(), "")
-                viewModel.readAloud(Jsoup.parse(html).textArray().joinToString("\n"))
+                viewModel.readAloud(
+                    Jsoup.parse(html)
+                        .textArray()
+                        .joinToString("\n")
+                )
             }
         }
     }
@@ -308,8 +313,9 @@ class ReadRssActivity : VMBaseActivity<ActivityRssReadBinding, ReadRssViewModel>
     }
 
     inner class CustomWebViewClient : WebViewClient() {
+
         override fun shouldOverrideUrlLoading(
-            view: WebView?,
+            view: WebView,
             request: WebResourceRequest?
         ): Boolean {
             request?.let {
@@ -319,20 +325,25 @@ class ReadRssActivity : VMBaseActivity<ActivityRssReadBinding, ReadRssViewModel>
         }
 
         @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION", "KotlinRedundantDiagnosticSuppress")
-        override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
+        override fun shouldOverrideUrlLoading(view: WebView, url: String?): Boolean {
             url?.let {
                 return shouldOverrideUrlLoading(Uri.parse(it))
             }
             return true
         }
 
-        override fun onPageFinished(view: WebView?, url: String?) {
+        override fun onPageFinished(view: WebView, url: String?) {
             super.onPageFinished(view, url)
-            view?.title?.let { title ->
+            view.title?.let { title ->
                 if (title != url && title != view.url && title.isNotBlank() && url != "about:blank") {
                     binding.titleBar.title = title
                 } else {
                     binding.titleBar.title = intent.getStringExtra("title")
+                }
+            }
+            viewModel.rssSource?.injectJs?.let {
+                if (it.isNotBlank()) {
+                    view.evaluateJavascript(it, null)
                 }
             }
         }

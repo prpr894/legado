@@ -28,7 +28,6 @@ class TTSReadAloudService : BaseReadAloudService(), TextToSpeech.OnInitListener 
     override fun onCreate() {
         super.onCreate()
         initTts()
-        upSpeechRate()
     }
 
     override fun onDestroy() {
@@ -45,6 +44,7 @@ class TTSReadAloudService : BaseReadAloudService(), TextToSpeech.OnInitListener 
         } else {
             TextToSpeech(this, this, engine)
         }
+        upSpeechRate()
     }
 
     @Synchronized
@@ -166,6 +166,11 @@ class TTSReadAloudService : BaseReadAloudService(), TextToSpeech.OnInitListener 
                     postEvent(EventBus.TTS_PROGRESS, readAloudNumber + start)
                 }
             }
+        }
+
+        override fun onError(utteranceId: String?, errorCode: Int) {
+            AppLog.put("tts朗读出错 errorCode:$errorCode")
+            onDone("")
         }
 
         @Deprecated("Deprecated in Java")

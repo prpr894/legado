@@ -82,6 +82,7 @@ android {
         multiDexEnabled true
 
         buildConfigField "String", "Cronet_Version", "\"$CronetVersion\""
+        buildConfigField "String", "Cronet_Main_Version", "\"$CronetMainVersion\""
 
         javaCompileOptions {
             annotationProcessorOptions {
@@ -96,7 +97,6 @@ android {
     buildFeatures {
         buildConfig true
         viewBinding true
-        compose true
     }
     buildTypes {
         release {
@@ -147,9 +147,6 @@ android {
         sourceCompatibility JavaVersion.VERSION_11
         targetCompatibility JavaVersion.VERSION_11
     }
-    composeOptions {
-        kotlinCompilerExtensionVersion "$compose_compiler_version"
-    }
 
     sourceSets {
         // Adds exported schema location as test app assets.
@@ -168,8 +165,8 @@ dependencies {
     //noinspection GradleDependency,GradlePackageUpdate
     coreLibraryDesugaring('com.android.tools:desugar_jdk_libs:1.2.2')
     testImplementation('junit:junit:4.13.2')
-    androidTestImplementation('androidx.test:runner:1.4.0')
-    androidTestImplementation('androidx.test.espresso:espresso-core:3.4.0')
+    androidTestImplementation('androidx.test:runner:1.5.1')
+    androidTestImplementation('androidx.test.espresso:espresso-core:3.5.0')
     implementation('androidx.multidex:multidex:2.0.1')
     //kotlin
     //noinspection GradleDependency,DifferentStdlibGradleVersion
@@ -205,18 +202,6 @@ dependencies {
     def lifecycle_version = '2.5.1'
     implementation("androidx.lifecycle:lifecycle-common-java8:$lifecycle_version")
     implementation("androidx.lifecycle:lifecycle-service:$lifecycle_version")
-
-    //compose
-    // Integration with activities
-    implementation 'androidx.activity:activity-compose:1.6.1'
-    // Compose Material Design
-    implementation "androidx.compose.material:material:$compose_version"
-    // Animations
-    implementation "androidx.compose.animation:animation:$compose_version"
-    // Tooling support (Previews, etc.)
-    implementation "androidx.compose.ui:ui-tooling:$compose_version"
-    // UI Tests
-    androidTestImplementation "androidx.compose.ui:ui-test-junit4:$compose_version"
 
     //media
     implementation("androidx.media:media:1.6.0")
@@ -287,7 +272,7 @@ dependencies {
 
     //加解密类库,有些书源使用
     //noinspection GradleDependency,GradlePackageUpdate
-    implementation('cn.hutool:hutool-crypto:5.8.9')
+    implementation('cn.hutool:hutool-crypto:5.8.10')
 
     //firebase, 崩溃统计和性能统计, 会导致共存版本崩溃
     //implementation platform('com.google.firebase:firebase-bom:30.0.1')

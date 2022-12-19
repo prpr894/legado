@@ -1062,4 +1062,7 @@
     <string name="groups_or_source">多分組/書源</string>
     <string name="replace_state_change">取代(啟用/禁用)</string>
     <string name="show_last_update_time">顯示上次更新時間</string>
+    <string name="refresh_list">刷新列表</string>
+    <string name="tip_divider_color">分隔线颜色</string>
+    <string name="same_title_removed">移除重复标题</string>
 </resources>

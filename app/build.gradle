@@ -35,7 +35,8 @@ def version = "3." + releaseTime()
 def gitCommits = Integer.parseInt('git rev-list HEAD --count'.execute().text.trim())
 
 android {
-    compileSdk 33
+    compileSdk = compile_sdk_version
+    buildToolsVersion = build_tool_version
     namespace 'io.legado.app'
     kotlinOptions {
         jvmTarget = "11"
@@ -186,7 +187,7 @@ dependencies {
     implementation('androidx.core:core-ktx:1.9.0')
     implementation('androidx.appcompat:appcompat:1.5.1')
     implementation('androidx.activity:activity-ktx:1.6.1')
-    implementation('androidx.fragment:fragment-ktx:1.5.4')
+    implementation('androidx.fragment:fragment-ktx:1.5.5')
     implementation('androidx.preference:preference-ktx:1.2.0')
     implementation('androidx.constraintlayout:constraintlayout:2.1.4')
     implementation('androidx.swiperefreshlayout:swiperefreshlayout:1.1.0')
@@ -252,7 +253,7 @@ dependencies {
     implementation("org.nanohttpd:nanohttpd-websocket:$nanoHttpdVersion")
 
     //二维码
-    implementation('com.github.jenly1314:zxing-lite:2.2.1')
+    implementation('com.github.jenly1314:zxing-lite:2.3.0')
 
     //颜色选择
     implementation('com.jaredrummler:colorpicker:1.1.0')

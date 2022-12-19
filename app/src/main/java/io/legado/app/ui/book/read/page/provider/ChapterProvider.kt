@@ -1,5 +1,6 @@
 package io.legado.app.ui.book.read.page.provider
 
+import android.annotation.SuppressLint
 import android.graphics.Paint
 import android.graphics.Typeface
 import android.net.Uri
@@ -11,6 +12,7 @@ import io.legado.app.constant.AppPattern
 import io.legado.app.constant.EventBus
 import io.legado.app.data.entities.Book
 import io.legado.app.data.entities.BookChapter
+import io.legado.app.help.book.BookContent
 import io.legado.app.help.config.AppConfig
 import io.legado.app.help.config.ReadBookConfig
 import io.legado.app.model.ReadBook
@@ -116,9 +118,10 @@ object ChapterProvider {
         book: Book,
         bookChapter: BookChapter,
         displayTitle: String,
-        contents: List<String>,
+        bookContent: BookContent,
         chapterSize: Int,
     ): TextChapter {
+        val contents = bookContent.textList
         val textPages = arrayListOf<TextPage>()
         val stringBuilder = StringBuilder()
         var absStartX = paddingLeft
@@ -213,9 +216,10 @@ object ChapterProvider {
         }
 
         return TextChapter(
+            bookChapter,
             bookChapter.index, displayTitle,
-            bookChapter.getAbsoluteURL(),
             textPages, chapterSize,
+            bookContent.sameTitleRemoved,
             bookChapter.isVip, bookChapter.isPay
         )
     }
@@ -567,6 +571,7 @@ object ChapterProvider {
         upLayout()
     }
 
+    @SuppressLint("Recycle")
     private fun getTypeface(fontPath: String): Typeface {
         return kotlin.runCatching {
             when {

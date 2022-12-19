@@ -33,7 +33,6 @@ import io.legado.app.ui.book.read.page.provider.ImageProvider
 import io.legado.app.ui.book.searchContent.SearchResult
 import io.legado.app.utils.*
 import kotlinx.coroutines.Dispatchers.IO
-import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileNotFoundException
@@ -70,6 +69,10 @@ class ReadBookViewModel(application: Application) : BaseViewModel(application) {
                 book != null -> initBook(book)
                 else -> ReadBook.upMsg(context.getString(R.string.no_book))
             }
+        }.onError {
+            val msg = "初始化数据失败\n${it.localizedMessage}"
+            ReadBook.upMsg(msg)
+            AppLog.put(msg, it)
         }.onFinally {
             ReadBook.saveRead()
         }
@@ -131,7 +134,7 @@ class ReadBookViewModel(application: Application) : BaseViewModel(application) {
     /**
      * 加载目录
      */
-    fun loadChapterList(book: Book) {
+    fun loadChapterList(book: Book, callback: (() -> Unit)? = null) {
         if (book.isLocal) {
             execute {
                 LocalBook.getChapterList(book).let {
@@ -153,28 +156,30 @@ class ReadBookViewModel(application: Application) : BaseViewModel(application) {
                         ReadBook.upMsg("LoadTocError:${it.localizedMessage}")
                     }
                 }
+            }.onFinally {
+                callback?.invoke()
             }
         } else {
             ReadBook.bookSource?.let {
-                viewModelScope.launch(IO) {
-                    val oldBook = book.copy()
-                    WebBook.getChapterList(viewModelScope, it, book, true)
-                        .onSuccess(IO) { cList ->
-                            if (oldBook.bookUrl == book.bookUrl) {
-                                appDb.bookDao.update(book)
-                            } else {
-                                appDb.bookDao.insert(book)
-                                BookHelp.updateCacheFolder(oldBook, book)
-                            }
-                            appDb.bookChapterDao.delByBook(oldBook.bookUrl)
-                            appDb.bookChapterDao.insert(*cList.toTypedArray())
-                            ReadBook.chapterSize = cList.size
-                            ReadBook.upMsg(null)
-                            ReadBook.loadContent(resetPageOffset = true)
-                        }.onError {
-                            ReadBook.upMsg(context.getString(R.string.error_load_toc))
+                val oldBook = book.copy()
+                WebBook.getChapterList(viewModelScope, it, book, true)
+                    .onSuccess(IO) { cList ->
+                        if (oldBook.bookUrl == book.bookUrl) {
+                            appDb.bookDao.update(book)
+                        } else {
+                            appDb.bookDao.insert(book)
+                            BookHelp.updateCacheFolder(oldBook, book)
                         }
-                }
+                        appDb.bookChapterDao.delByBook(oldBook.bookUrl)
+                        appDb.bookChapterDao.insert(*cList.toTypedArray())
+                        ReadBook.chapterSize = cList.size
+                        ReadBook.upMsg(null)
+                        ReadBook.loadContent(resetPageOffset = true)
+                    }.onError {
+                        ReadBook.upMsg(context.getString(R.string.error_load_toc))
+                    }.onFinally {
+                        callback?.invoke()
+                    }
             }
         }
     }
@@ -423,6 +428,25 @@ class ReadBookViewModel(application: Application) : BaseViewModel(application) {
         return arrayOf(pageIndex, lineIndex, charIndex, addLine, charIndex2)
     }
 
+    /**
+     * 翻转删除重复标题
+     */
+    fun reverseRemoveSameTitle() {
+        execute {
+            val book = ReadBook.book
+            val textChapter = ReadBook.curTextChapter
+            if (book != null && textChapter != null) {
+                BookHelp.setRemoveSameTitle(
+                    book, textChapter.chapter, !textChapter.sameTitleRemoved
+                )
+                ReadBook.loadContent(ReadBook.durChapterIndex)
+            }
+        }
+    }
+
+    /**
+     * 刷新图片
+     */
     fun refreshImage(src: String) {
         execute {
             ReadBook.book?.let { book ->
@@ -435,6 +459,9 @@ class ReadBookViewModel(application: Application) : BaseViewModel(application) {
         }
     }
 
+    /**
+     * 保存图片
+     */
     @Suppress("BlockingMethodInNonBlockingContext")
     fun saveImage(src: String?, uri: Uri) {
         src ?: return

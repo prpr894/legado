@@ -79,15 +79,21 @@ class ContentProcessor private constructor(
         useReplace: Boolean = true,
         chineseConvert: Boolean = true,
         reSegment: Boolean = true
-    ): List<String> {
+    ): BookContent {
         var mContent = content
+        var sameTitleRemoved = false
         if (content != "null") {
             //去除重复标题
-            try {
+            if (BookHelp.removeSameTitle(book, chapter)) try {
                 val name = Pattern.quote(book.name)
                 val title = Pattern.quote(chapter.title)
-                val titleRegex = "^(\\s|\\p{P}|${name})*${title}(\\s)*".toRegex()
-                mContent = mContent.replace(titleRegex, "")
+                val titleRegex = "^(\\s|\\p{P}|${name})*${title}(\\s)*"
+                val matcher = Pattern.compile(titleRegex)
+                    .matcher(mContent)
+                if (matcher.find()) {
+                    mContent = mContent.substring(matcher.end())
+                    sameTitleRemoved = true
+                }
             } catch (e: Exception) {
                 AppLog.put("去除重复标题出错\n${e.localizedMessage}", e)
             }
@@ -131,7 +137,7 @@ class ContentProcessor private constructor(
                 }
             }
         }
-        return contents
+        return BookContent(sameTitleRemoved, contents)
     }
 
     suspend fun replaceContent(content: String): String {

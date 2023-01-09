@@ -1,6 +1,7 @@
 package io.legado.app.model.localBook
 
 import android.graphics.Bitmap
+import android.graphics.Color
 import android.graphics.pdf.PdfRenderer
 import android.os.ParcelFileDescriptor
 import io.legado.app.constant.AppLog
@@ -56,10 +57,13 @@ class PdfFile(var book: Book) {
 
     }
 
+    /**
+     *持有引用，避免被回收
+     */
     private var fileDescriptor: ParcelFileDescriptor? = null
     private var pdfRenderer: PdfRenderer? = null
         get() {
-            if (field != null) {
+            if (field != null && fileDescriptor != null) {
                 return field
             }
             field = readPdf()
@@ -71,11 +75,7 @@ class PdfFile(var book: Book) {
         try {
             pdfRenderer?.let { renderer ->
                 if (book.coverUrl.isNullOrEmpty()) {
-                    book.coverUrl = FileUtils.getPath(
-                        appCtx.externalFiles,
-                        "covers",
-                        "${MD5Utils.md5Encode16(book.bookUrl)}.jpg"
-                    )
+                    book.coverUrl = LocalBook.getCoverPath(book)
                 }
                 if (!File(book.coverUrl!!).exists()) {
 
@@ -107,7 +107,7 @@ class PdfFile(var book: Book) {
             }
         } else {
             fileDescriptor =
-                ParcelFileDescriptor.open(File(uri.path), ParcelFileDescriptor.MODE_READ_ONLY)
+                ParcelFileDescriptor.open(File(uri.path!!), ParcelFileDescriptor.MODE_READ_ONLY)
                     ?.also {
                         pdfRenderer = PdfRenderer(it)
                     }
@@ -144,6 +144,7 @@ class PdfFile(var book: Book) {
                 Bitmap.Config.ARGB_8888
             )
                 .apply {
+                    this.eraseColor(Color.WHITE)
                     page.render(this, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
                 }
         }
@@ -178,7 +179,7 @@ class PdfFile(var book: Book) {
             val index = href.toInt()
             val bitmap = openPdfPage(pdfRenderer!!, index)
             if (bitmap != null) {
-                BitmapUtils.toInputStream(bitmap).also { bitmap.recycle() }
+                BitmapUtils.toInputStream(bitmap)
             } else {
                 null
             }

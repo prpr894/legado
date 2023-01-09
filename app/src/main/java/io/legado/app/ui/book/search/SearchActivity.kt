@@ -11,7 +11,6 @@ import android.widget.TextView
 import androidx.activity.viewModels
 import androidx.appcompat.widget.SearchView
 import androidx.core.view.isVisible
-import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.flexbox.FlexboxLayoutManager
@@ -31,7 +30,6 @@ import io.legado.app.utils.*
 import io.legado.app.utils.viewbindingdelegate.viewBinding
 import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -185,21 +183,21 @@ class SearchActivity : VMBaseActivity<ActivityBookSearchBinding, SearchViewModel
         searchView.queryHint = getString(R.string.search_book_key)
         searchView.clearFocus()
         searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
-            override fun onQueryTextSubmit(query: String?): Boolean {
+            override fun onQueryTextSubmit(query: String): Boolean {
                 searchView.clearFocus()
-                query?.let {
+                query.trim().let { searchKey ->
                     isManualStopSearch = false
-                    viewModel.saveSearchKey(query)
+                    viewModel.saveSearchKey(searchKey)
                     viewModel.searchKey = ""
-                    viewModel.search(it)
+                    viewModel.search(searchKey)
                 }
                 visibleInputHelp(false)
                 return true
             }
 
-            override fun onQueryTextChange(newText: String?): Boolean {
-                if (newText.isNullOrBlank()) viewModel.stop()
-                upHistory(newText)
+            override fun onQueryTextChange(newText: String): Boolean {
+                if (newText.isBlank()) viewModel.stop()
+                upHistory(newText.trim())
                 return false
             }
         })
@@ -277,11 +275,8 @@ class SearchActivity : VMBaseActivity<ActivityBookSearchBinding, SearchViewModel
                 searchFinally()
             }
         }
-        lifecycleScope.launchWhenStarted {
-            viewModel.searchDataFlow.conflate().collect {
-                adapter.setItems(it)
-                delay(1000)
-            }
+        viewModel.searchBookLiveData.observe(this) {
+            adapter.setItems(it)
         }
         launch {
             appDb.bookSourceDao.flowEnabledGroups().collect {
@@ -408,7 +403,11 @@ class SearchActivity : VMBaseActivity<ActivityBookSearchBinding, SearchViewModel
      * 是否已经加入书架
      */
     override fun isInBookshelf(name: String, author: String): Boolean {
-        return viewModel.bookshelf.contains("$name-$author")
+        return if (author.isNotBlank()) {
+            viewModel.bookshelf.contains("$name-$author")
+        } else {
+            viewModel.bookshelf.any { it.startsWith("$name-") }
+        }
     }
 
     /**

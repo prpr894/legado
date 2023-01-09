@@ -664,6 +664,7 @@
     <string name="plus">Mais</string>
     <string name="system_typeface">Tamanho e tipo da fonte</string>
     <string name="delete_book_file">Excluir arquivo fonte</string>
+    <string name="text_default">Padrão</string>
     <string name="default1">Padrão-1</string>
     <string name="default2">Padrão-2</string>
     <string name="default3">Padrão-3</string>
@@ -1066,4 +1067,5 @@
     <string name="refresh_list">刷新列表</string>
     <string name="tip_divider_color">分隔线颜色</string>
     <string name="same_title_removed">移除重复标题</string>
+    <string name="update_book_fail">更新失败</string>
 </resources>

@@ -657,6 +657,7 @@
     <string name="plus">加</string>
     <string name="system_typeface">系統內置字體樣式</string>
     <string name="delete_book_file">刪除源文件</string>
+    <string name="text_default">默认</string>
     <string name="default1">預設一</string>
     <string name="default2">預設二</string>
     <string name="default3">預設三</string>
@@ -1063,4 +1064,5 @@
     <string name="refresh_list">刷新列表</string>
     <string name="tip_divider_color">分隔线颜色</string>
     <string name="same_title_removed">移除重复标题</string>
+    <string name="update_book_fail">更新失败</string>
 </resources>

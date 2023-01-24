@@ -1,13 +1,16 @@
-package io.legado.app.help.http.cronet
+package io.legado.app.lib.cronet
 
 import android.os.Build
+import androidx.annotation.Keep
+import io.legado.app.help.http.cookieJar
 import io.legado.app.utils.printOnDebug
 import okhttp3.*
 import okhttp3.internal.http.receiveHeaders
 import java.io.IOException
 
-
-class CronetInterceptor(private val cookieJar: CookieJar = CookieJar.NO_COOKIES) : Interceptor {
+@Keep
+@Suppress("unused")
+class CronetInterceptor : Interceptor {
     @Throws(IOException::class)
     override fun intercept(chain: Interceptor.Chain): Response {
         if (chain.call().isCanceled()) {

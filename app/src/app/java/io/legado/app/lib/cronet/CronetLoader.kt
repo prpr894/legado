@@ -1,13 +1,15 @@
-package io.legado.app.help.http.cronet
+package io.legado.app.lib.cronet
 
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.os.Build
 import android.text.TextUtils
+import androidx.annotation.Keep
 import io.legado.app.BuildConfig
 import io.legado.app.help.config.AppConfig
 import io.legado.app.help.coroutine.Coroutine
+import io.legado.app.help.http.cronet.CronetLoaderInterface
 import io.legado.app.utils.DebugLog
 import io.legado.app.utils.printOnDebug
 
@@ -22,8 +24,8 @@ import java.net.URL
 import java.security.MessageDigest
 import java.util.*
 
-
-object CronetLoader : CronetEngine.Builder.LibraryLoader() {
+@Keep
+object CronetLoader : CronetEngine.Builder.LibraryLoader(), CronetLoaderInterface {
     //https://storage.googleapis.com/chromium-cronet/android/92.0.4515.159/Release/cronet/libs/arm64-v8a/libcronet.92.0.4515.159.so
 
     private const val soVersion = BuildConfig.Cronet_Version
@@ -55,7 +57,7 @@ object CronetLoader : CronetEngine.Builder.LibraryLoader() {
     /**
      * 判断Cronet是否安装完成
      */
-    fun install(): Boolean {
+    override fun install(): Boolean {
         synchronized(this) {
             if (cacheInstall) {
                 return true
@@ -77,7 +79,7 @@ object CronetLoader : CronetEngine.Builder.LibraryLoader() {
     /**
      * 预加载Cronet
      */
-    fun preDownload() {
+    override fun preDownload() {
         if (AppConfig.isGooglePlay) {
             return
         }
@@ -288,7 +290,7 @@ object CronetLoader : CronetEngine.Builder.LibraryLoader() {
             cacheInstall = false
             val parentFile = downloadTempFile.parentFile
             @Suppress("SameParameterValue")
-            deleteHistoryFile(parentFile!!, null)
+            (deleteHistoryFile(parentFile!!, null))
         }
 //        executor.execute {
 //

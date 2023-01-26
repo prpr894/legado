@@ -1,5 +1,6 @@
 package io.legado.app.help.book
 
+import android.graphics.BitmapFactory
 import android.os.ParcelFileDescriptor
 import androidx.documentfile.provider.DocumentFile
 import io.legado.app.constant.AppLog
@@ -16,6 +17,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.Dispatchers.IO
 import org.apache.commons.text.similarity.JaccardSimilarity
 import splitties.init.appCtx
+import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.FileNotFoundException
 import java.io.FileOutputStream
@@ -111,22 +113,20 @@ object BookHelp {
         ).writeText(content)
     }
 
-    private suspend fun saveImages(
+    suspend fun saveImages(
         bookSource: BookSource,
         book: Book,
         bookChapter: BookChapter,
         content: String
     ) = coroutineScope {
         val awaitList = arrayListOf<Deferred<Unit>>()
-        content.split("\n").forEach {
-            val matcher = AppPattern.imgPattern.matcher(it)
-            if (matcher.find()) {
-                matcher.group(1)?.let { src ->
-                    val mSrc = NetworkUtils.getAbsoluteURL(bookChapter.url, src)
-                    awaitList.add(async {
-                        saveImage(bookSource, book, mSrc)
-                    })
-                }
+        val matcher = AppPattern.imgPattern.matcher(content)
+        while (matcher.find()) {
+            matcher.group(1)?.let { src ->
+                val mSrc = NetworkUtils.getAbsoluteURL(bookChapter.url, src)
+                awaitList.add(async {
+                    saveImage(bookSource, book, mSrc)
+                })
             }
         }
         awaitList.forEach {
@@ -149,6 +149,9 @@ object BookHelp {
             ImageUtils.decode(
                 src, bytes, isCover = false, bookSource, book
             )?.let {
+                if (!checkImage(bytes)) {
+                    AppLog.put("图片 $src 下载错误，数据异常")
+                }
                 FileUtils.createFileIfNotExist(
                     downloadDir,
                     cacheFolderName,
@@ -158,7 +161,8 @@ object BookHelp {
                 ).writeBytes(it)
             }
         } catch (e: Exception) {
-            AppLog.putDebug("${src}下载错误", e)
+            e.printStackTrace()
+            AppLog.put("图片 $src 下载错误\n${e.localizedMessage}", e)
         } finally {
             downloadImages.remove(src)
         }
@@ -256,16 +260,40 @@ object BookHelp {
         if (!hasContent(book, bookChapter)) {
             return false
         }
+        var ret = true
+        val op = BitmapFactory.Options()
+        op.inJustDecodeBounds = true
         getContent(book, bookChapter)?.let {
             val matcher = AppPattern.imgPattern.matcher(it)
             while (matcher.find()) {
-                matcher.group(1)?.let { src ->
-                    val image = getImage(book, src)
-                    if (!image.exists()) {
-                        return false
-                    }
+                val src = matcher.group(1)!!
+                val image = getImage(book, src)
+                if (!image.exists()) {
+                    ret = false
+                    continue
+                }
+                if (SvgUtils.getSize(image.absolutePath) != null) {
+                    continue
+                }
+                BitmapFactory.decodeFile(image.absolutePath, op)
+                if (op.outWidth < 1 && op.outHeight < 1) {
+                    ret = false
+                    image.delete()
                 }
             }
+        }
+        return ret
+    }
+
+    private fun checkImage(bytes: ByteArray): Boolean {
+        if (SvgUtils.getSize(ByteArrayInputStream(bytes)) != null) {
+            return true
+        }
+        val op = BitmapFactory.Options()
+        op.inJustDecodeBounds = true
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, op)
+        if (op.outWidth < 1 && op.outHeight < 1) {
+            return false
         }
         return true
     }

@@ -659,7 +659,7 @@ interface JsExtensions : JsEncodeUtils {
         getSource()?.let {
             Debug.log(it.getKey(), msg.toString())
         } ?: Debug.log(msg.toString())
-        AppLog.putDebug(msg.toString())
+        AppLog.putDebug("书源调试输出：$msg")
         return msg
     }
 

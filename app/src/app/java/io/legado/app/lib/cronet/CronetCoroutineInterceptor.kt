@@ -1,7 +1,6 @@
 package io.legado.app.lib.cronet
 
 import androidx.annotation.Keep
-import io.legado.app.help.http.cookieJar
 import io.legado.app.utils.printOnDebug
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -16,7 +15,8 @@ import kotlin.coroutines.resumeWithException
 
 @Keep
 @Suppress("unused")
-class CronetCoroutineInterceptor : Interceptor {
+class CronetCoroutineInterceptor(private val cookieJar: CookieJar) : Interceptor {
+
     override fun intercept(chain: Interceptor.Chain): Response {
         if (chain.call().isCanceled()) {
             throw IOException("Canceled")
@@ -92,7 +92,10 @@ class CronetCoroutineInterceptor : Interceptor {
 
             }
 
-            buildRequest(request, callBack)?.start()
+            val req = buildRequest(request, callBack)?.also { it.start() }
+            coroutine.invokeOnCancellation {
+                req?.cancel()
+            }
 
 
         }

@@ -13,6 +13,7 @@ import androidx.core.view.isVisible
 import androidx.documentfile.provider.DocumentFile
 import androidx.recyclerview.widget.LinearLayoutManager
 import io.legado.app.R
+import io.legado.app.constant.AppConst
 import io.legado.app.constant.PreferKey
 import io.legado.app.data.appDb
 import io.legado.app.databinding.ActivityImportBookBinding
@@ -282,7 +283,7 @@ class ImportBookActivity : BaseImportBookActivity<ActivityImportBookBinding, Imp
                             selectFolder.launch()
                         }
                     }
-                    AppConfig.isGooglePlay -> {
+                    AppConst.isPlayChannel -> {
                         binding.tvEmptyMsg.visible()
                         selectFolder.launch()
                     }

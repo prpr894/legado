@@ -796,7 +796,7 @@
     <string name="no_book">Sem livros</string>
     <string name="keep_original_name">Manter o nome original</string>
     <string name="click_regional_config">O controle de toque da tela</string>
-    <string name="colse">Fechar</string>
+    <string name="close">Fechar</string>
     <string name="next_page">Próxima página</string>
     <string name="prev_page">Página anterior</string>
     <string name="non_action">Nenhuma Ação</string>
@@ -1068,4 +1068,6 @@
     <string name="tip_divider_color">分隔线颜色</string>
     <string name="same_title_removed">移除重复标题</string>
     <string name="update_book_fail">更新失败</string>
+    <string name="notification_permission_rationale">阅读需要发送通知来显示朗读控制和下载进度</string>
+    <string name="webdav_after_local_restore_confirm">webDav书源比本地新,是否恢复</string>
 </resources>

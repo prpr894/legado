@@ -1,12 +1,12 @@
 package io.legado.app
 
+import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.os.Build
-import androidx.multidex.MultiDexApplication
 import com.github.liuyueyi.quick.transfer.ChineseUtils
 import com.github.liuyueyi.quick.transfer.constants.TransType
 import com.jeremyliao.liveeventbus.LiveEventBus
@@ -16,10 +16,7 @@ import io.legado.app.constant.AppConst.channelIdReadAloud
 import io.legado.app.constant.AppConst.channelIdWeb
 import io.legado.app.constant.PreferKey
 import io.legado.app.data.appDb
-import io.legado.app.help.AppWebDav
-import io.legado.app.help.CrashHandler
-import io.legado.app.help.LifecycleHelp
-import io.legado.app.help.RuleBigDataHelp
+import io.legado.app.help.*
 import io.legado.app.help.book.BookHelp
 import io.legado.app.help.config.AppConfig
 import io.legado.app.help.config.ThemeConfig.applyDayNight
@@ -33,7 +30,7 @@ import splitties.init.appCtx
 import splitties.systemservices.notificationManager
 import java.util.concurrent.TimeUnit
 
-class App : MultiDexApplication() {
+class App : Application() {
 
     private lateinit var oldConfig: Configuration
 
@@ -50,6 +47,7 @@ class App : MultiDexApplication() {
             .autoClear(false)
         registerActivityLifecycleCallbacks(LifecycleHelp)
         defaultSharedPreferences.registerOnSharedPreferenceChangeListener(AppConfig)
+        DefaultData.upVersion()
         Coroutine.async {
             launch { installGmsTlsProvider(appCtx) }
             //初始化封面

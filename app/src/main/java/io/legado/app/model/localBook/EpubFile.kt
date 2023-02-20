@@ -190,16 +190,23 @@ class EpubFile(var book: Book) {
     }
 
     private fun getBody(res: Resource, startFragmentId: String?, endFragmentId: String?): Element {
-        val doc = Jsoup.parse(String(res.data, mCharset))
-        val body = doc.body()
+        val originHtml = String(res.data, mCharset)
+        var html = originHtml
+        var doc = Jsoup.parse(html)
+        var body = doc.body()
         if (!startFragmentId.isNullOrBlank()) {
-            body.getElementById(startFragmentId)?.previousElementSiblings()?.remove()
+            body.getElementById(startFragmentId)?.outerHtml()?.let {
+                html = html.substringAfter(it)
+            }
         }
         if (!endFragmentId.isNullOrBlank() && endFragmentId != startFragmentId) {
-            body.getElementById(endFragmentId)?.run {
-                nextElementSiblings().remove()
-                remove()
+            body.getElementById(endFragmentId)?.outerHtml()?.let {
+                html = html.substringBefore(it)
             }
+        }
+        if (html != originHtml) {
+            doc = Jsoup.parse(html)
+            body = doc.body()
         }
         /*选择去除正文中的H标签，部分书籍标题与阅读标题重复待优化*/
         val tag = Book.hTag
@@ -304,6 +311,7 @@ class EpubFile(var book: Book) {
     ) {
         val contents = epubBook?.contents
         if (epubBook == null || contents == null || refs == null) return
+        val firstRef = refs.firstOrNull { it.resource != null } ?: return
         var i = 0
         durIndex = 0
         while (i < contents.size) {
@@ -314,7 +322,7 @@ class EpubFile(var book: Book) {
              * completeHref可能有fragment(#id) 必须去除
              * fix https://github.com/gedoor/legado/issues/1932
              */
-            if (refs[0].completeHref.substringBeforeLast("#") == content.href) break
+            if (firstRef.completeHref.substringBeforeLast("#") == content.href) break
             val chapter = BookChapter()
             var title = content.title
             if (TextUtils.isEmpty(title)) {

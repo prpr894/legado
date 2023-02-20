@@ -801,7 +801,7 @@
     <string name="no_book">没有书籍</string>
     <string name="keep_original_name">保留原名</string>
     <string name="click_regional_config">点击区域设置</string>
-    <string name="colse">关闭</string>
+    <string name="close">关闭</string>
     <string name="next_page">下一页</string>
     <string name="prev_page">上一页</string>
     <string name="non_action">无操作</string>
@@ -1067,4 +1067,18 @@
     <string name="tip_divider_color">分隔线颜色</string>
     <string name="same_title_removed">移除重复标题</string>
     <string name="update_book_fail">更新失败</string>
+    <string name="notification_permission_rationale">阅读需要发送通知来显示朗读控制和下载进度</string>
+    <string name="webdav_after_local_restore_confirm">webDav书源比本地新,是否恢复</string>
+    <string name="c_whitelist">白名单(contentWhitelist)</string>
+    <string name="c_blacklist">黑名单(contentBlacklist)</string>
+    <string name="confirm">确认</string>
+    <string name="jump_to_another_app">跳转其它应用</string>
+    <string name="clear_webview_data">清除 WebView 数据</string>
+    <string name="clear_webview_data_summary">清除内置浏览器所有数据</string>
+    <string name="source_tab_list">列表</string>
+    <string name="dict_rule">字典规则</string>
+    <string name="config_dict_rule">配置字典规则</string>
+    <string name="create">新建</string>
+    <string name="url_rule">url规则(urlRule)</string>
+    <string name="show_rule">显示规则(showRule)</string>
 </resources>

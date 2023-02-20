@@ -47,7 +47,7 @@ class FileAssociationActivity :
     override val viewModel by viewModels<FileAssociationViewModel>()
 
     override fun onActivityCreated(savedInstanceState: Bundle?) {
-        binding.rotateLoading.show()
+        binding.rotateLoading.visible()
         viewModel.importBookLiveData.observe(this) { uri ->
             importBook(uri)
         }
@@ -80,19 +80,19 @@ class FileAssociationActivity :
             }
         }
         viewModel.errorLive.observe(this) {
-            binding.rotateLoading.hide()
+            binding.rotateLoading.gone()
             toastOnUi(it)
             finish()
         }
         viewModel.openBookLiveData.observe(this) {
-            binding.rotateLoading.hide()
+            binding.rotateLoading.gone()
             startActivity<ReadBookActivity> {
                 putExtra("bookUrl", it)
             }
             finish()
         }
         viewModel.notSupportedLiveData.observe(this) { data ->
-            binding.rotateLoading.hide()
+            binding.rotateLoading.gone()
             alert(
                 title = appCtx.getString(R.string.draw),
                 message = appCtx.getString(R.string.file_not_supported, data.second)
@@ -109,7 +109,7 @@ class FileAssociationActivity :
             if (data.isContentScheme()) {
                 viewModel.dispatchIndent(data)
             } else if (!AppConst.isPlayChannel || Build.VERSION.SDK_INT <= Build.VERSION_CODES.Q) {
-                PermissionsCompat.Builder(this)
+                PermissionsCompat.Builder()
                     .addPermissions(*Permissions.Group.STORAGE)
                     .rationale(R.string.tip_perm_request_storage)
                     .onGranted {

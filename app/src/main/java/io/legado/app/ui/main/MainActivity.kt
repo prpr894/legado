@@ -92,6 +92,8 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
             if (!privacyPolicy()) return@launch
             //版本更新
             upVersion()
+            //备份同步
+            backupSync()
             //自动更新书籍
             val isAutoRefreshedBook = savedInstanceState?.getBoolean("isAutoRefreshedBook") ?: false
             if (AppConfig.autoRefreshBook && !isAutoRefreshedBook) {
@@ -102,7 +104,6 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
             binding.viewPagerMain.postDelayed(3000) {
                 viewModel.postLoad()
             }
-            syncAlert()
         }
     }
 
@@ -173,17 +174,16 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
             return@suspendCoroutine
         }
         LocalConfig.versionCode = appInfo.versionCode
-        viewModel.upVersion()
         if (LocalConfig.isFirstOpenApp) {
             val help = String(assets.open("help/appHelp.md").readBytes())
-            val dialog = TextDialog(help, TextDialog.Mode.MD)
+            val dialog = TextDialog(getString(R.string.help), help, TextDialog.Mode.MD)
             dialog.setOnDismissListener {
                 block.resume(Unit)
             }
             showDialogFragment(dialog)
         } else if (!BuildConfig.DEBUG) {
             val log = String(assets.open("updateLog.md").readBytes())
-            val dialog = TextDialog(log, TextDialog.Mode.MD)
+            val dialog = TextDialog(getString(R.string.update_log), log, TextDialog.Mode.MD)
             dialog.setOnDismissListener {
                 block.resume(Unit)
             }
@@ -194,17 +194,19 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
     }
 
     /**
-     * 同步提示
+     * 备份同步
      */
-    private fun syncAlert() = launch {
-        val lastBackupFile = withContext(IO) { AppWebDav.lastBackUp().getOrNull() }
-            ?: return@launch
-        if (lastBackupFile.lastModify - LocalConfig.lastBackup > DateUtils.MINUTE_IN_MILLIS) {
-            LocalConfig.lastBackup = lastBackupFile.lastModify
-            alert("恢复", "webDav书源比本地新,是否恢复") {
-                cancelButton()
-                okButton {
-                    viewModel.restoreWebDav(lastBackupFile.displayName)
+    private fun backupSync() {
+        launch {
+            val lastBackupFile =
+                withContext(IO) { AppWebDav.lastBackUp().getOrNull() } ?: return@launch
+            if (lastBackupFile.lastModify - LocalConfig.lastBackup > DateUtils.MINUTE_IN_MILLIS) {
+                LocalConfig.lastBackup = lastBackupFile.lastModify
+                alert(R.string.restore, R.string.webdav_after_local_restore_confirm) {
+                    cancelButton()
+                    okButton {
+                        viewModel.restoreWebDav(lastBackupFile.displayName)
+                    }
                 }
             }
         }

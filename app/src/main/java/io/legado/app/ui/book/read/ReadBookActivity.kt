@@ -121,6 +121,7 @@ class ReadBookActivity : BaseReadBookActivity(),
                 val searchResult = IntentData.get<SearchResult>("searchResult$key")
                 val searchResultList = IntentData.get<List<SearchResult>>("searchResultList$key")
                 if (searchResult != null && searchResultList != null) {
+                    ContentProcessor.enableRemoveSameTitle = false
                     viewModel.searchContentQuery = searchResult.query
                     binding.searchMenu.upSearchResultList(searchResultList)
                     isShowingSearchResult = true
@@ -832,7 +833,7 @@ class ReadBookActivity : BaseReadBookActivity(),
             ReadAloud.stop(this)
             launch {
                 ReadBook.book?.migrateTo(book, toc)
-                appDb.bookDao.insert(book)
+                appDb.bookDao.upsert(book)
             }
             startActivity<AudioPlayActivity> {
                 putExtra("bookUrl", book.bookUrl)
@@ -858,7 +859,7 @@ class ReadBookActivity : BaseReadBookActivity(),
 
     override fun showReadMenuHelp() {
         val text = String(assets.open("help/readMenuHelp.md").readBytes())
-        showDialogFragment(TextDialog(text, TextDialog.Mode.MD))
+        showDialogFragment(TextDialog(getString(R.string.help), text, TextDialog.Mode.MD))
     }
 
     /**
@@ -1005,6 +1006,7 @@ class ReadBookActivity : BaseReadBookActivity(),
     override fun exitSearchMenu() {
         if (isShowingSearchResult) {
             isShowingSearchResult = false
+            ContentProcessor.enableRemoveSameTitle = true
             binding.searchMenu.invalidate()
             binding.searchMenu.invisible()
             binding.readView.isTextSelected = false

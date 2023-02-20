@@ -49,7 +49,6 @@ class CronetInterceptor(private val cookieJar: CookieJar) : Interceptor {
             }
             chain.proceed(original)
         }
-
     }
 
     private fun proceedWithCronet(request: Request, call: Call): Response? {

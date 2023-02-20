@@ -28,6 +28,7 @@ import io.legado.app.utils.viewbindingdelegate.viewBinding
 import kotlinx.coroutines.launch
 import org.apache.commons.text.StringEscapeUtils
 import org.jsoup.Jsoup
+import java.io.ByteArrayInputStream
 import java.net.URLDecoder
 
 /**
@@ -95,9 +96,13 @@ class ReadRssActivity : VMBaseActivity<ActivityRssReadBinding, ReadRssViewModel>
                 binding.webView.reload()
             }
             R.id.menu_rss_star -> viewModel.favorite()
-            R.id.menu_share_it -> viewModel.rssArticle?.let {
-                share(it.link)
-            } ?: toastOnUi(R.string.null_url)
+            R.id.menu_share_it -> {
+                binding.webView.url?.let {
+                    share(it)
+                } ?: viewModel.rssArticle?.let {
+                    share(it.link)
+                } ?: toastOnUi(R.string.null_url)
+            }
             R.id.menu_aloud -> readAloud()
             R.id.menu_login -> startActivity<SourceLoginActivity> {
                 putExtra("type", "rssSource")
@@ -128,7 +133,10 @@ class ReadRssActivity : VMBaseActivity<ActivityRssReadBinding, ReadRssViewModel>
             displayZoomControls = false
             setDarkeningAllowed(AppConfig.isNightTheme)
         }
-        binding.webView.addJavascriptInterface(this, "app")
+        binding.webView.addJavascriptInterface(this, "thisActivity")
+        viewModel.rssSource?.let {
+            binding.webView.addJavascriptInterface(it, "thisSource")
+        }
         binding.webView.setOnLongClickListener {
             val hitTestResult = binding.webView.hitTestResult
             if (hitTestResult.type == WebView.HitTestResult.IMAGE_TYPE ||
@@ -317,20 +325,47 @@ class ReadRssActivity : VMBaseActivity<ActivityRssReadBinding, ReadRssViewModel>
 
         override fun shouldOverrideUrlLoading(
             view: WebView,
-            request: WebResourceRequest?
+            request: WebResourceRequest
         ): Boolean {
-            request?.let {
-                return shouldOverrideUrlLoading(it.url)
-            }
-            return true
+            return shouldOverrideUrlLoading(request.url)
         }
 
         @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION", "KotlinRedundantDiagnosticSuppress")
-        override fun shouldOverrideUrlLoading(view: WebView, url: String?): Boolean {
-            url?.let {
-                return shouldOverrideUrlLoading(Uri.parse(it))
+        override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
+            return shouldOverrideUrlLoading(Uri.parse(url))
+        }
+
+        /**
+         * 如果有黑名单,黑名单匹配返回空白,
+         * 没有黑名单再判断白名单,在白名单中的才通过,
+         * 都没有不做处理
+         */
+        override fun shouldInterceptRequest(
+            view: WebView,
+            request: WebResourceRequest
+        ): WebResourceResponse? {
+            val url = request.url.toString()
+            viewModel.rssSource?.let { source ->
+                val blacklist = source.contentBlacklist?.splitNotBlank(",")
+                if (!blacklist.isNullOrEmpty()) {
+                    blacklist.forEach {
+                        if (url.startsWith(it) || url.matches(it.toRegex())) {
+                            return createEmptyResource()
+                        }
+                    }
+                } else {
+                    val whitelist = source.contentWhitelist?.splitNotBlank(",")
+                    if (!whitelist.isNullOrEmpty()) {
+                        whitelist.forEach {
+                            if (url.startsWith(it) || url.matches(it.toRegex())) {
+                                return super.shouldInterceptRequest(view, request)
+                            }
+                        }
+                        return createEmptyResource()
+                    }
+                }
             }
-            return true
+            return super.shouldInterceptRequest(view, request)
         }
 
         override fun onPageFinished(view: WebView, url: String?) {
@@ -349,9 +384,17 @@ class ReadRssActivity : VMBaseActivity<ActivityRssReadBinding, ReadRssViewModel>
             }
         }
 
+        private fun createEmptyResource(): WebResourceResponse {
+            return WebResourceResponse(
+                "text/plain",
+                "utf-8",
+                ByteArrayInputStream("".toByteArray())
+            )
+        }
+
         private fun shouldOverrideUrlLoading(url: Uri): Boolean {
             when (url.scheme) {
-                "http", "https" -> {
+                "http", "https", "jsbridge" -> {
                     return false
                 }
                 "legado", "yuedu" -> {
@@ -361,7 +404,7 @@ class ReadRssActivity : VMBaseActivity<ActivityRssReadBinding, ReadRssViewModel>
                     return true
                 }
                 else -> {
-                    binding.root.longSnackbar("跳转其它应用", "确认") {
+                    binding.root.longSnackbar(R.string.jump_to_another_app, R.string.confirm) {
                         openUrl(url)
                     }
                     return true

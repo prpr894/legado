@@ -42,7 +42,7 @@ class TxtTocRuleViewModel(app: Application) : BaseViewModel(app) {
             okHttpClient.newCallResponseBody {
                 url(url)
             }.text("utf-8").let { json ->
-                GSON.fromJsonArray<TxtTocRule>(json).getOrThrow()?.let {
+                GSON.fromJsonArray<TxtTocRule>(json).getOrThrow().let {
                     appDb.txtTocRuleDao.insert(*it.toTypedArray())
                 }
             }
@@ -80,6 +80,20 @@ class TxtTocRuleViewModel(app: Application) : BaseViewModel(app) {
                 source.serialNumber = index + 1
             }
             appDb.txtTocRuleDao.update(*sources.toTypedArray())
+        }
+    }
+
+    fun enableSelection(vararg txtTocRule: TxtTocRule) {
+        execute {
+            val array = txtTocRule.map { it.copy(enable = true) }.toTypedArray()
+            appDb.txtTocRuleDao.insert(*array)
+        }
+    }
+
+    fun disableSelection(vararg txtTocRule: TxtTocRule) {
+        execute {
+            val array = txtTocRule.map { it.copy(enable = false) }.toTypedArray()
+            appDb.txtTocRuleDao.insert(*array)
         }
     }
 

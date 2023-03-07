@@ -51,16 +51,19 @@ class ImportRssSourceViewModel(app: Application) : BaseViewModel(app) {
         execute {
             val group = groupName?.trim()
             val keepName = AppConfig.importKeepName
+            val keepGroup = AppConfig.importKeepGroup
             val selectSource = arrayListOf<RssSource>()
             selectStatus.forEachIndexed { index, b ->
                 if (b) {
                     val source = allSources[index]
-                    if (keepName) {
-                        checkSources[index]?.let {
+                    checkSources[index]?.let {
+                        if (keepName) {
                             source.sourceName = it.sourceName
-                            source.sourceGroup = it.sourceGroup
-                            source.customOrder = it.customOrder
                         }
+                        if (keepGroup) {
+                            source.sourceGroup = it.sourceGroup
+                        }
+                        source.customOrder = it.customOrder
                     }
                     if (!group.isNullOrEmpty()) {
                         if (isAddGroup) {
@@ -101,12 +104,8 @@ class ImportRssSourceViewModel(app: Application) : BaseViewModel(app) {
                     }
                 }
                 mText.isJsonArray() -> {
-                    val items: List<Map<String, Any>> = jsonPath.parse(mText).read("$")
-                    for (item in items) {
-                        val jsonItem = jsonPath.parse(item)
-                        RssSource.fromJsonDoc(jsonItem).getOrThrow().let {
-                            allSources.add(it)
-                        }
+                    RssSource.fromJsonArray(mText).getOrThrow().let {
+                        allSources.addAll(it)
                     }
                 }
                 mText.isAbsUrl() -> {

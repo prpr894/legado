@@ -342,7 +342,7 @@
     <string name="pt_show_all_find">Mostrar todos los buscados</string>
     <string name="ps_show_all_find">Mostrar la fuente de búsqueda si Descubrir fue cerrado</string>
     <string name="update_toc">Actualizar capítulos</string>
-    <string name="txt_toc_regex">Capítulos de Txt Regex</string>
+    <string name="txt_toc_rule">Capítulos de Txt Rule</string>
     <string name="set_charset">Codificación de texto</string>
     <string name="swap_sort">Orden ascendente/descendente</string>
     <string name="sort">Ordenar</string>
@@ -1073,4 +1073,15 @@
     <string name="jump_to_another_app">跳转其它应用</string>
     <string name="clear_webview_data">清除 WebView 数据</string>
     <string name="clear_webview_data_summary">清除内置浏览器所有数据</string>
+    <string name="source_tab_list">列表</string>
+    <string name="dict_rule">字典规则</string>
+    <string name="config_dict_rule">配置字典规则</string>
+    <string name="create">新建</string>
+    <string name="url_rule">url规则(urlRule)</string>
+    <string name="show_rule">显示规则(showRule)</string>
+    <string name="config_txt_toc_rule">配置 TXT 目录规则</string>
+    <string name="import_dict_rule">导入字典规则</string>
+    <string name="keep_group">保留分组</string>
+    <string name="server_config">服务器配置</string>
+    <string name="sure_upload">Remote webDav url exists, Continue?</string>
 </resources>

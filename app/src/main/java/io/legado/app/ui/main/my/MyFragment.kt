@@ -25,8 +25,10 @@ import io.legado.app.ui.about.DonateActivity
 import io.legado.app.ui.about.ReadRecordActivity
 import io.legado.app.ui.book.bookmark.AllBookmarkActivity
 import io.legado.app.ui.book.source.manage.BookSourceActivity
+import io.legado.app.ui.book.toc.rule.TxtTocRuleActivity
 import io.legado.app.ui.config.ConfigActivity
 import io.legado.app.ui.config.ConfigTag
+import io.legado.app.ui.dict.rule.DictRuleActivity
 import io.legado.app.ui.replace.ReplaceRuleActivity
 import io.legado.app.ui.widget.dialog.TextDialog
 import io.legado.app.utils.*
@@ -136,6 +138,8 @@ class MyFragment : BaseFragment(R.layout.fragment_my_config) {
             when (preference.key) {
                 "bookSourceManage" -> startActivity<BookSourceActivity>()
                 "replaceManage" -> startActivity<ReplaceRuleActivity>()
+                "dictRuleManage" -> startActivity<DictRuleActivity>()
+                "txtTocRuleManage" -> startActivity<TxtTocRuleActivity>()
                 "bookmark" -> startActivity<AllBookmarkActivity>()
                 "setting" -> startActivity<ConfigActivity> {
                     putExtra("configTag", ConfigTag.OTHER_CONFIG)

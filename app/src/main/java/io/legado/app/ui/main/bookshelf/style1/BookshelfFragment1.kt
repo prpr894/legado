@@ -97,11 +97,12 @@ class BookshelfFragment1 : BaseBookshelfFragment(R.layout.fragment_bookshelf),
         }
     }
 
-    @Synchronized
     private fun selectLastTab() {
-        tabLayout.removeOnTabSelectedListener(this)
-        tabLayout.getTabAt(getPrefInt(PreferKey.saveTabPosition, 0))?.select()
-        tabLayout.addOnTabSelectedListener(this)
+        tabLayout.post {
+            tabLayout.removeOnTabSelectedListener(this)
+            tabLayout.getTabAt(getPrefInt(PreferKey.saveTabPosition, 0))?.select()
+            tabLayout.addOnTabSelectedListener(this)
+        }
     }
 
     override fun onTabReselected(tab: TabLayout.Tab) {
@@ -129,8 +130,18 @@ class BookshelfFragment1 : BaseBookshelfFragment(R.layout.fragment_bookshelf),
             return bookGroups[position].groupName
         }
 
+        /**
+         * 确定视图位置是否更改时调用
+         * @return POSITION_NONE 已更改,刷新视图. POSITION_UNCHANGED 未更改,不刷新视图
+         */
         override fun getItemPosition(`object`: Any): Int {
-            return POSITION_NONE
+            val fragment = `object` as BooksFragment
+            val position = fragment.position
+            val group = bookGroups.getOrNull(position)
+            if (fragment.groupId != group?.groupId) {
+                return POSITION_NONE
+            }
+            return POSITION_UNCHANGED
         }
 
         override fun getItem(position: Int): Fragment {

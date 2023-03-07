@@ -28,8 +28,6 @@ import io.legado.app.help.config.LocalConfig
 import io.legado.app.help.coroutine.Coroutine
 import io.legado.app.help.storage.Backup
 import io.legado.app.lib.dialogs.alert
-import io.legado.app.lib.permission.Permissions
-import io.legado.app.lib.permission.PermissionsCompat
 import io.legado.app.lib.theme.elevation
 import io.legado.app.lib.theme.primaryColor
 import io.legado.app.service.BaseReadAloudService
@@ -94,8 +92,6 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
             if (!privacyPolicy()) return@launch
             //版本更新
             upVersion()
-            //检测通知权限
-            checkNotificationPermission()
             //备份同步
             backupSync()
             //自动更新书籍
@@ -178,7 +174,6 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
             return@suspendCoroutine
         }
         LocalConfig.versionCode = appInfo.versionCode
-        viewModel.upVersion()
         if (LocalConfig.isFirstOpenApp) {
             val help = String(assets.open("help/appHelp.md").readBytes())
             val dialog = TextDialog(getString(R.string.help), help, TextDialog.Mode.MD)
@@ -196,25 +191,6 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
         } else {
             block.resume(Unit)
         }
-    }
-
-    /**
-     * 检测通知权限
-     */
-    private suspend fun checkNotificationPermission() = suspendCoroutine { block ->
-        PermissionsCompat.Builder(this)
-            .addPermissions(Permissions.POST_NOTIFICATIONS)
-            .rationale(R.string.notification_permission_rationale)
-            .onDenied {
-                block.resume(null)
-            }
-            .onGranted {
-                block.resume(null)
-            }
-            .onError {
-                block.resume(null)
-            }
-            .request()
     }
 
     /**

@@ -17,7 +17,6 @@ import io.legado.app.ui.about.AppLogDialog
 import io.legado.app.ui.book.import.BaseImportBookActivity
 import io.legado.app.ui.widget.SelectActionBar
 import io.legado.app.ui.widget.dialog.TextDialog
-import io.legado.app.ui.widget.dialog.WaitDialog
 import io.legado.app.utils.showDialogFragment
 import io.legado.app.utils.viewbindingdelegate.viewBinding
 import kotlinx.coroutines.delay
@@ -30,12 +29,13 @@ import java.io.File
  */
 class RemoteBookActivity : BaseImportBookActivity<ActivityImportBookBinding, RemoteBookViewModel>(),
     RemoteBookAdapter.CallBack,
-    SelectActionBar.CallBack {
+    SelectActionBar.CallBack,
+    ServerConfigDialog.Callback {
     override val binding by viewBinding(ActivityImportBookBinding::inflate)
     override val viewModel by viewModels<RemoteBookViewModel>()
     private val adapter by lazy { RemoteBookAdapter(this, this) }
-    private val waitDialog by lazy { WaitDialog(this) }
     private var groupMenu: SubMenu? = null
+
     override fun onActivityCreated(savedInstanceState: Bundle?) {
         binding.titleBar.setTitle(R.string.remote_book)
         launch {
@@ -44,8 +44,18 @@ class RemoteBookActivity : BaseImportBookActivity<ActivityImportBookBinding, Rem
                 return@launch
             }
             initView()
-            initData()
             initEvent()
+            launch {
+                viewModel.dataFlow.conflate().collect { sortedRemoteBooks ->
+                    binding.refreshProgressBar.isAutoLoading = false
+                    binding.tvEmptyMsg.isGone = sortedRemoteBooks.isNotEmpty()
+                    adapter.setItems(sortedRemoteBooks)
+                    delay(500)
+                }
+            }
+            viewModel.initData {
+                upPath()
+            }
         }
     }
 
@@ -69,19 +79,6 @@ class RemoteBookActivity : BaseImportBookActivity<ActivityImportBookBinding, Rem
         }
     }
 
-    private fun initData() {
-        binding.refreshProgressBar.isAutoLoading = true
-        launch {
-            viewModel.dataFlow.conflate().collect { sortedRemoteBooks ->
-                binding.refreshProgressBar.isAutoLoading = false
-                binding.tvEmptyMsg.isGone = sortedRemoteBooks.isNotEmpty()
-                adapter.setItems(sortedRemoteBooks)
-                delay(500)
-            }
-        }
-        upPath()
-    }
-
     private fun initEvent() {
         binding.tvGoBack.setOnClickListener {
             goBackDir()
@@ -97,6 +94,7 @@ class RemoteBookActivity : BaseImportBookActivity<ActivityImportBookBinding, Rem
     override fun onCompatOptionsItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
             R.id.menu_refresh -> upPath()
+            R.id.menu_server_config -> showDialogFragment(ServerConfigDialog())
             R.id.menu_log -> showDialogFragment<AppLogDialog>()
             R.id.menu_help -> showHelp("webDavBookHelp")
             R.id.menu_sort_name -> {
@@ -133,11 +131,11 @@ class RemoteBookActivity : BaseImportBookActivity<ActivityImportBookBinding, Rem
 
     @SuppressLint("NotifyDataSetChanged")
     override fun onClickSelectBarMainAction() {
-        waitDialog.show()
+        binding.refreshProgressBar.isAutoLoading = true
         viewModel.addToBookshelf(adapter.selected) {
             adapter.selected.clear()
             adapter.notifyDataSetChanged()
-            waitDialog.dismiss()
+            binding.refreshProgressBar.isAutoLoading = false
         }
     }
 
@@ -170,11 +168,7 @@ class RemoteBookActivity : BaseImportBookActivity<ActivityImportBookBinding, Rem
         viewModel.loadRemoteBookList(
             viewModel.dirList.lastOrNull()?.path
         ) {
-            if (it) {
-                waitDialog.show()
-            } else {
-                waitDialog.dismiss()
-            }
+            binding.refreshProgressBar.isAutoLoading = it
         }
     }
 
@@ -187,6 +181,11 @@ class RemoteBookActivity : BaseImportBookActivity<ActivityImportBookBinding, Rem
         binding.selectActionBar.upCountView(adapter.selected.size, adapter.checkableCount)
     }
 
+    override fun onDialogDismiss(tag: String) {
+        viewModel.initData {
+            upPath()
+        }
+    }
 
     @Suppress("SameParameterValue")
     private fun showHelp(fileName: String) {

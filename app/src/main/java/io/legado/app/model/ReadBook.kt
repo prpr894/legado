@@ -10,6 +10,7 @@ import io.legado.app.help.book.isLocal
 import io.legado.app.help.config.AppConfig
 import io.legado.app.help.config.ReadBookConfig
 import io.legado.app.help.coroutine.Coroutine
+import io.legado.app.model.localBook.TextFile
 import io.legado.app.model.webBook.WebBook
 import io.legado.app.service.BaseReadAloudService
 import io.legado.app.ui.book.read.page.entities.TextChapter
@@ -77,6 +78,7 @@ object ReadBook : CoroutineScope by MainScope() {
         upWebBook(book)
         lastBookPress = null
         webBookProgress = null
+        TextFile.txtBuffer = null
         synchronized(this) {
             loadingChapters.clear()
         }
@@ -194,7 +196,7 @@ object ReadBook : CoroutineScope by MainScope() {
         toLast: Boolean = true
     ): Boolean {
         if (durChapterIndex > 0) {
-            durChapterPos = if (toLast) prevTextChapter?.lastReadLength ?: 0 else 0
+            durChapterPos = if (toLast) prevTextChapter?.lastReadLength ?: Int.MAX_VALUE else 0
             durChapterIndex--
             nextTextChapter = curTextChapter
             curTextChapter = prevTextChapter

@@ -345,7 +345,7 @@
     <string name="pt_show_all_find">显示所有发现</string>
     <string name="ps_show_all_find">关闭则只显示勾选源的发现</string>
     <string name="update_toc">更新目录</string>
-    <string name="txt_toc_regex">TXT 目录正则</string>
+    <string name="txt_toc_rule">TXT 目录规则</string>
     <string name="set_charset">设置编码</string>
     <string name="swap_sort">倒序-顺序</string>
     <string name="sort">排序</string>
@@ -1075,4 +1075,15 @@
     <string name="jump_to_another_app">跳转其它应用</string>
     <string name="clear_webview_data">清除 WebView 数据</string>
     <string name="clear_webview_data_summary">清除内置浏览器所有数据</string>
+    <string name="source_tab_list">列表</string>
+    <string name="dict_rule">字典规则</string>
+    <string name="config_dict_rule">配置字典规则</string>
+    <string name="create">新建</string>
+    <string name="url_rule">url规则(urlRule)</string>
+    <string name="show_rule">显示规则(showRule)</string>
+    <string name="config_txt_toc_rule">配置 TXT 目录规则</string>
+    <string name="import_dict_rule">导入字典规则</string>
+    <string name="keep_group">保留分组</string>
+    <string name="server_config">服务器配置</string>
+    <string name="sure_upload">远程webDav链接已存在，是否继续</string>
 </resources>

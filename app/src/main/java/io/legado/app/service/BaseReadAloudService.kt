@@ -15,6 +15,7 @@ import android.support.v4.media.session.PlaybackStateCompat
 import androidx.annotation.CallSuper
 import androidx.core.app.NotificationCompat
 import androidx.media.AudioFocusRequestCompat
+import androidx.media.AudioManagerCompat
 import io.legado.app.R
 import io.legado.app.base.BaseService
 import io.legado.app.constant.*
@@ -94,7 +95,6 @@ abstract class BaseReadAloudService : BaseService(),
         observeLiveBus()
         initMediaSession()
         initBroadcastReceiver()
-        upNotification()
         upMediaSessionPlaybackState(PlaybackStateCompat.STATE_PLAYING)
         setTimer(AppConfig.ttsTimer)
         if (AppConfig.ttsTimer > 0) {
@@ -277,8 +277,7 @@ abstract class BaseReadAloudService : BaseService(),
      * 放弃音频焦点
      */
     private fun abandonFocus() {
-        @Suppress("DEPRECATION")
-        audioManager.abandonAudioFocus(this)
+        AudioManagerCompat.abandonAudioFocusRequest(audioManager, mFocusRequest)
     }
 
     /**
@@ -355,7 +354,7 @@ abstract class BaseReadAloudService : BaseService(),
     /**
      * 更新通知
      */
-    private fun upNotification() {
+    override fun upNotification() {
         execute {
             var nTitle: String = when {
                 pause -> getString(R.string.read_aloud_pause)

@@ -15,13 +15,13 @@ import io.legado.app.data.entities.Book
 import io.legado.app.data.entities.BookChapter
 import io.legado.app.data.entities.BookSource
 import io.legado.app.exception.NoStackTraceException
+import io.legado.app.help.AppWebDav
 import io.legado.app.help.book.*
 import io.legado.app.help.coroutine.Coroutine
 import io.legado.app.lib.webdav.ObjectNotFoundException
 import io.legado.app.model.BookCover
 import io.legado.app.model.ReadBook
 import io.legado.app.model.localBook.LocalBook
-import io.legado.app.model.remote.RemoteBookWebDav
 import io.legado.app.model.webBook.WebBook
 import io.legado.app.utils.isContentScheme
 import io.legado.app.utils.postEvent
@@ -114,11 +114,13 @@ class BookInfoViewModel(application: Application) : BaseViewModel(application) {
             if (book.isLocal) {
                 book.tocUrl = ""
                 book.getRemoteUrl()?.let {
-                    val remoteBook = RemoteBookWebDav.getRemoteBook(it)
+                    val bookWebDav = AppWebDav.defaultBookWebDav
+                        ?: throw NoStackTraceException("webDav没有配置")
+                    val remoteBook = bookWebDav.getRemoteBook(it)
                     if (remoteBook == null) {
                         book.origin = BookType.localTag
                     } else if (remoteBook.lastModify > book.lastCheckTime) {
-                        val uri = RemoteBookWebDav.downloadRemoteBook(remoteBook)
+                        val uri = bookWebDav.downloadRemoteBook(remoteBook)
                         book.bookUrl = if (uri.isContentScheme()) uri.toString() else uri.path!!
                         book.lastCheckTime = remoteBook.lastModify
                     }
@@ -237,6 +239,7 @@ class BookInfoViewModel(application: Application) : BaseViewModel(application) {
             bookData.value?.migrateTo(book, toc)
             if (inBookshelf) {
                 book.removeType(BookType.updateError)
+                bookData.value?.delete()
                 appDb.bookDao.insert(book)
                 appDb.bookChapterDao.insert(*toc.toTypedArray())
             }
@@ -325,6 +328,9 @@ class BookInfoViewModel(application: Application) : BaseViewModel(application) {
     fun clearCache() {
         execute {
             BookHelp.clearCache(bookData.value!!)
+            if (ReadBook.book?.bookUrl == bookData.value!!.bookUrl) {
+                ReadBook.clearTextChapter()
+            }
         }.onSuccess {
             context.toastOnUi(R.string.clear_cache_success)
         }.onError {

@@ -41,7 +41,6 @@ class DownloadService : BaseService() {
 
     override fun onCreate() {
         super.onCreate()
-        upSummaryNotification()
         registerReceiver(downloadReceiver, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE))
     }
 
@@ -102,10 +101,13 @@ class DownloadService : BaseService() {
                 checkDownloadState()
             }
         }.onFailure {
-            when (it) {
-                is SecurityException -> toastOnUi("下载出错,没有存储权限")
-                else -> toastOnUi("下载出错,${it.localizedMessage}")
+            it.printStackTrace()
+            val msg = when (it) {
+                is SecurityException -> "下载出错,没有存储权限"
+                else -> "下载出错,${it.localizedMessage}"
             }
+            toastOnUi(msg)
+            AppLog.put(msg, it)
         }
     }
 
@@ -198,10 +200,7 @@ class DownloadService : BaseService() {
         }
     }
 
-    /**
-     * 更新下载进度条
-     */
-    private fun upSummaryNotification() {
+    override fun upNotification() {
         val notification = NotificationCompat.Builder(this, AppConst.channelIdDownload)
             .setSmallIcon(R.drawable.ic_download)
             .setSubText(getString(R.string.action_download))

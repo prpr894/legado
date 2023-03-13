@@ -4,7 +4,7 @@ import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import android.provider.Settings
 import androidx.annotation.Keep
-import com.script.javascript.RhinoScriptEngine
+import com.script.rhino.RhinoScriptEngine
 import io.legado.app.BuildConfig
 import io.legado.app.utils.channel
 import splitties.init.appCtx
@@ -24,6 +24,8 @@ object AppConst {
     const val UA_NAME = "User-Agent"
 
     const val MAX_THREAD = 9
+
+    const val DEFAULT_WEBDAV_ID = -1L
 
     val SCRIPT_ENGINE: RhinoScriptEngine by lazy {
         RhinoScriptEngine()

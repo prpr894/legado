@@ -617,7 +617,6 @@
     <string name="custom_page_key">Defina qué botones pasan de página</string>
     <string name="prev_page_key">Botón de página anterior</string>
     <string name="next_page_key">Botón de página siguiente</string>
-    <string name="after_add_bookshelf">Primero agregue este libro a Estantería</string>
     <string name="no_group">Sin grupo</string>
     <string name="prev_sentence">Oración anterior</string>
     <string name="next_sentence">Siguiente oración</string>
@@ -984,7 +983,6 @@
     <string name="import_theme">导入主题</string>
     <string name="import_txt_toc_rule">导入txt目录规则</string>
     <string name="auto_save_cookie">CookieJar</string>
-    <string name="click_read_button_load">点击阅读加载目录</string>
     <string name="cookie">清除cookie</string>
     <string name="download_and_import_file">导入在线书籍文件</string>
     <string name="upload_book_success">Upload Success</string>
@@ -992,7 +990,7 @@
     <string name="download_book_success">Download Success</string>
     <string name="download_book_fail">Download Fail</string>
     <string name="upload_to_remote">Upload</string>
-    <string name="add_remote_book">WebDavBook</string>
+    <string name="add_remote_book">RemoteBook</string>
     <string name="bitmap_cache_size_summary">Current cache max size %1$s MB</string>
     <string name="bitmap_cache_size">bitmap cache size</string>
     <string name="export_pics_file">Export Picture Files</string>
@@ -1084,4 +1082,5 @@
     <string name="keep_group">保留分组</string>
     <string name="server_config">服务器配置</string>
     <string name="sure_upload">Remote webDav url exists, Continue?</string>
+    <string name="unsupport_archivefile_entry">Cannot find supported files in archive</string>
 </resources>

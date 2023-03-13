@@ -27,35 +27,21 @@ import kotlinx.coroutines.withContext
 import splitties.init.appCtx
 import java.io.File
 import java.io.FileInputStream
-import java.io.FileOutputStream
 
 /**
  * 恢复
  */
 object Restore {
 
-    suspend fun restore(context: Context, path: String) {
+    suspend fun restore(context: Context, uri: Uri) {
         kotlin.runCatching {
-            if (path.isContentScheme()) {
-                DocumentFile.fromTreeUri(context, Uri.parse(path))?.listFiles()?.forEach { doc ->
-                    if (Backup.backupFileNames.contains(doc.name)) {
-                        context.contentResolver.openInputStream(doc.uri)?.use { inputStream ->
-                            val file = File("${Backup.backupPath}${File.separator}${doc.name}")
-                            FileOutputStream(file).use { outputStream ->
-                                inputStream.copyTo(outputStream)
-                            }
-                        }
-                    }
+            FileUtils.delete(Backup.backupPath)
+            if (uri.isContentScheme()) {
+                DocumentFile.fromSingleUri(context, uri)!!.openInputStream()!!.use {
+                    ZipUtils.unZipToPath(it, Backup.backupPath)
                 }
             } else {
-                val dir = File(path)
-                for (fileName in Backup.backupFileNames) {
-                    val file = dir.getFile(fileName)
-                    if (file.exists()) {
-                        val target = File("${Backup.backupPath}${File.separator}$fileName")
-                        file.copyTo(target, true)
-                    }
-                }
+                ZipUtils.unzipFile(uri.path!!, Backup.backupPath)
             }
         }.onFailure {
             AppLog.put("恢复复制文件出错\n${it.localizedMessage}", it)
@@ -141,8 +127,7 @@ object Restore {
     suspend fun restoreConfig(path: String = Backup.backupPath) {
         withContext(IO) {
             try {
-                val file =
-                    FileUtils.createFileIfNotExist("$path${File.separator}${DirectLinkUpload.ruleFileName}")
+                val file = File(path, DirectLinkUpload.ruleFileName)
                 if (file.exists()) {
                     val json = file.readText()
                     ACache.get(cacheDir = false).put(DirectLinkUpload.ruleFileName, json)
@@ -151,8 +136,7 @@ object Restore {
                 AppLog.put("直链上传出错\n${e.localizedMessage}", e)
             }
             try {
-                val file =
-                    FileUtils.createFileIfNotExist("$path${File.separator}${ThemeConfig.configFileName}")
+                val file = File(path, ThemeConfig.configFileName)
                 if (file.exists()) {
                     FileUtils.delete(ThemeConfig.configFilePath)
                     file.copyTo(File(ThemeConfig.configFilePath))
@@ -164,8 +148,7 @@ object Restore {
             if (!BackupConfig.ignoreReadConfig) {
                 //恢复阅读界面配置
                 try {
-                    val file =
-                        FileUtils.createFileIfNotExist("$path${File.separator}${ReadBookConfig.configFileName}")
+                    val file = File(path, ReadBookConfig.configFileName)
                     if (file.exists()) {
                         FileUtils.delete(ReadBookConfig.configFilePath)
                         file.copyTo(File(ReadBookConfig.configFilePath))
@@ -175,8 +158,7 @@ object Restore {
                     AppLog.put("恢复阅读界面出错\n${e.localizedMessage}", e)
                 }
                 try {
-                    val file =
-                        FileUtils.createFileIfNotExist("$path${File.separator}${ReadBookConfig.shareConfigFileName}")
+                    val file = File(path, ReadBookConfig.shareConfigFileName)
                     if (file.exists()) {
                         FileUtils.delete(ReadBookConfig.shareConfigFilePath)
                         file.copyTo(File(ReadBookConfig.shareConfigFilePath))
@@ -221,9 +203,11 @@ object Restore {
 
     private inline fun <reified T> fileToListT(path: String, fileName: String): List<T>? {
         try {
-            val file = FileUtils.createFileIfNotExist(path + File.separator + fileName)
-            FileInputStream(file).use {
-                return GSON.fromJsonArray<T>(it).getOrThrow()
+            val file = File(path, fileName)
+            if (file.exists()) {
+                FileInputStream(file).use {
+                    return GSON.fromJsonArray<T>(it).getOrThrow()
+                }
             }
         } catch (e: Exception) {
             AppLog.put("$fileName\n读取解析出错\n${e.localizedMessage}", e)

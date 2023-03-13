@@ -1,6 +1,7 @@
 package io.legado.app.lib.webdav
 
 import io.legado.app.data.appDb
+import io.legado.app.data.entities.Server.WebDavConfig
 import io.legado.app.exception.NoStackTraceException
 import okhttp3.Credentials
 import java.nio.charset.Charset
@@ -24,9 +25,11 @@ data class Authorization(
 
     constructor(serverID: Long?): this("","") {
         serverID ?: throw NoStackTraceException("Unexpected server ID")
-        appDb.serverDao.get(serverID)?.getWebDavConfig().run {
+        appDb.serverDao.get(serverID)?.getWebDavConfig()?.run {
             data = Credentials.basic(username, password, charset)
         } ?: throw WebDavException("Unexpected WebDav Authorization")
     }
+
+    constructor(webDavConfig: WebDavConfig): this(webDavConfig.username, webDavConfig.password)
 
 }

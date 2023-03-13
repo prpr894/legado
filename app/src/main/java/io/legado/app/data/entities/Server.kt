@@ -23,7 +23,7 @@ data class Server(
 ) : Parcelable {
 
     enum class TYPE {
-        WEBDAV, ALIYUN, GOOGLEYUN
+        WEBDAV
     }
 
     override fun hashCode(): Int {
@@ -49,9 +49,9 @@ data class Server(
 
     @Parcelize
     data class WebDavConfig(
-        var url: String? = null,
-        var username: String? = null,
-        var password: String? = null,
+        var url: String,
+        var username: String,
+        var password: String
     ) : Parcelable
 
 }

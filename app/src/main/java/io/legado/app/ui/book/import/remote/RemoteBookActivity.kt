@@ -9,7 +9,7 @@ import androidx.activity.viewModels
 import androidx.core.view.isGone
 import androidx.recyclerview.widget.LinearLayoutManager
 import io.legado.app.R
-import io.legado.app.databinding.ActivityImportBookBinding
+import io.legado.app.data.entities.Book
 import io.legado.app.help.config.LocalConfig
 import io.legado.app.lib.theme.backgroundColor
 import io.legado.app.model.remote.RemoteBook
@@ -18,7 +18,6 @@ import io.legado.app.ui.book.import.BaseImportBookActivity
 import io.legado.app.ui.widget.SelectActionBar
 import io.legado.app.ui.widget.dialog.TextDialog
 import io.legado.app.utils.showDialogFragment
-import io.legado.app.utils.viewbindingdelegate.viewBinding
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.launch
@@ -27,17 +26,17 @@ import java.io.File
 /**
  * 展示远程书籍
  */
-class RemoteBookActivity : BaseImportBookActivity<ActivityImportBookBinding, RemoteBookViewModel>(),
+class RemoteBookActivity : BaseImportBookActivity<RemoteBookViewModel>(),
     RemoteBookAdapter.CallBack,
     SelectActionBar.CallBack,
-    ServerConfigDialog.Callback {
-    override val binding by viewBinding(ActivityImportBookBinding::inflate)
+    ServersDialog.Callback {
+
     override val viewModel by viewModels<RemoteBookViewModel>()
     private val adapter by lazy { RemoteBookAdapter(this, this) }
     private var groupMenu: SubMenu? = null
 
     override fun onActivityCreated(savedInstanceState: Bundle?) {
-        binding.titleBar.setTitle(R.string.remote_book)
+        searchView.queryHint = getString(R.string.screen) + "-" + getString(R.string.remote_book)
         launch {
             if (!setBookStorage()) {
                 finish()
@@ -94,7 +93,7 @@ class RemoteBookActivity : BaseImportBookActivity<ActivityImportBookBinding, Rem
     override fun onCompatOptionsItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
             R.id.menu_refresh -> upPath()
-            R.id.menu_server_config -> showDialogFragment(ServerConfigDialog())
+            R.id.menu_server_config -> showDialogFragment<ServersDialog>()
             R.id.menu_log -> showDialogFragment<AppLogDialog>()
             R.id.menu_help -> showHelp("webDavBookHelp")
             R.id.menu_sort_name -> {
@@ -187,10 +186,17 @@ class RemoteBookActivity : BaseImportBookActivity<ActivityImportBookBinding, Rem
         }
     }
 
+    override fun onSearchTextChange(newText: String?) {
+        viewModel.updateCallBackFlow(newText)
+    }
+
     @Suppress("SameParameterValue")
     private fun showHelp(fileName: String) {
         //显示目录help下的帮助文档
         val mdText = String(assets.open("help/${fileName}.md").readBytes())
         showDialogFragment(TextDialog(getString(R.string.help), mdText, TextDialog.Mode.MD))
     }
+
+    override fun startRead(book: Book) = startReadBook(book.bookUrl)
+
 }

@@ -2,6 +2,7 @@ package io.legado.app.ui.book.info
 
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
@@ -11,7 +12,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import io.legado.app.R
 import io.legado.app.base.VMBaseActivity
-import io.legado.app.constant.EventBus
 import io.legado.app.constant.Theme
 import io.legado.app.data.appDb
 import io.legado.app.data.entities.Book
@@ -21,19 +21,16 @@ import io.legado.app.databinding.ActivityBookInfoBinding
 import io.legado.app.databinding.DialogEditTextBinding
 import io.legado.app.exception.NoStackTraceException
 import io.legado.app.help.AppWebDav
-import io.legado.app.help.book.isAudio
-import io.legado.app.help.book.isLocal
-import io.legado.app.help.book.isLocalTxt
-import io.legado.app.help.book.getRemoteUrl
+import io.legado.app.help.book.*
 import io.legado.app.help.config.AppConfig
 import io.legado.app.lib.dialogs.alert
+import io.legado.app.lib.dialogs.selector
 import io.legado.app.lib.theme.backgroundColor
 import io.legado.app.lib.theme.bottomBackground
 import io.legado.app.lib.theme.getPrimaryTextColor
 import io.legado.app.model.BookCover
 import io.legado.app.model.remote.RemoteBookWebDav
 import io.legado.app.ui.about.AppLogDialog
-import io.legado.app.ui.association.ImportOnLineBookFileDialog
 import io.legado.app.ui.book.audio.AudioPlayActivity
 import io.legado.app.ui.book.changecover.ChangeCoverDialog
 import io.legado.app.ui.book.changesource.ChangeBookSourceDialog
@@ -51,7 +48,6 @@ import io.legado.app.utils.viewbindingdelegate.viewBinding
 import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-
 
 class BookInfoActivity :
     VMBaseActivity<ActivityBookInfoBinding, BookInfoViewModel>(toolBarTheme = Theme.Dark),
@@ -98,6 +94,7 @@ class BookInfoActivity :
         }
     }
     private var tocChanged = false
+    private val waitDialog by lazy { WaitDialog(this) }
 
     override val binding by viewBinding(ActivityBookInfoBinding::inflate)
     override val viewModel by viewModels<BookInfoViewModel>()
@@ -113,12 +110,14 @@ class BookInfoActivity :
         binding.tvToc.text = getString(R.string.toc_s, getString(R.string.loading))
         viewModel.bookData.observe(this) { showBook(it) }
         viewModel.chapterListData.observe(this) { upLoading(false, it) }
+        viewModel.waitDialogData.observe(this) { upWaitDialogStatus(it) }
         viewModel.initData(intent)
         initViewEvent()
     }
 
     override fun onCompatCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.book_info, menu)
+        menu.findItem(R.id.menu_edit)?.isVisible = viewModel.inBookshelf
         return super.onCompatCreateOptionsMenu(menu)
     }
 
@@ -145,14 +144,10 @@ class BookInfoActivity :
     override fun onCompatOptionsItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
             R.id.menu_edit -> {
-                if (viewModel.inBookshelf) {
-                    viewModel.bookData.value?.let {
-                        infoEditResult.launch {
-                            putExtra("bookUrl", it.bookUrl)
-                        }
+                viewModel.bookData.value?.let {
+                    infoEditResult.launch {
+                        putExtra("bookUrl", it.bookUrl)
                     }
-                } else {
-                    toastOnUi(R.string.after_add_bookshelf)
                 }
             }
             R.id.menu_share_it -> {
@@ -184,13 +179,11 @@ class BookInfoActivity :
                 sendToClip(it)
             } ?: toastOnUi(R.string.no_book)
             R.id.menu_can_update -> {
-                if (viewModel.inBookshelf) {
-                    viewModel.bookData.value?.let {
-                        it.canUpdate = !it.canUpdate
+                viewModel.bookData.value?.let {
+                    it.canUpdate = !it.canUpdate
+                    if (viewModel.inBookshelf) {
                         viewModel.saveBook(it)
                     }
-                } else {
-                    toastOnUi(R.string.after_add_bookshelf)
                 }
             }
             R.id.menu_clear_cache -> viewModel.clearCache()
@@ -227,11 +220,9 @@ class BookInfoActivity :
         bookWebDav: RemoteBookWebDav? = AppWebDav.defaultBookWebDav
     ) {
         launch {
-            val waitDialog = WaitDialog(this@BookInfoActivity)
             waitDialog.setText("上传中.....")
             waitDialog.show()
             try {
-                
                 bookWebDav
                     ?.upload(book)
                     ?: throw NoStackTraceException("未配置webDav")
@@ -253,6 +244,7 @@ class BookInfoActivity :
         tvOrigin.text = getString(R.string.origin_show, book.originName)
         tvLasted.text = getString(R.string.lasted_show, book.latestChapterTitle)
         tvIntro.text = book.getDisplayIntro()
+        llToc?.visible(!book.isWebFile)
         upTvBookshelf()
         val kinds = book.getKindList()
         if (kinds.isEmpty()) {
@@ -278,11 +270,10 @@ class BookInfoActivity :
                 binding.tvToc.text = getString(R.string.toc_s, getString(R.string.loading))
             }
             chapterList.isNullOrEmpty() -> {
-                binding.tvToc.text =
-                    if (viewModel.isImportBookOnLine) getString(R.string.click_read_button_load) else getString(
-                        R.string.toc_s,
-                        getString(R.string.error_load_toc)
-                    )
+                binding.tvToc.text = getString(
+                    R.string.toc_s,
+                    getString(R.string.error_load_toc)
+                )
             }
             else -> {
                 viewModel.bookData.value?.let {
@@ -333,9 +324,9 @@ class BookInfoActivity :
         }
         tvRead.setOnClickListener {
             viewModel.bookData.value?.let { book ->
-                if (viewModel.isImportBookOnLine) {
-                    showDialogFragment<ImportOnLineBookFileDialog> {
-                        putString("bookUrl", book.bookUrl)
+                if (book.isWebFile) {
+                    showWebFileDownloadAlert {
+                        readBook(it)
                     }
                 } else {
                     readBook(book)
@@ -343,11 +334,17 @@ class BookInfoActivity :
             } ?: toastOnUi("Book is null")
         }
         tvShelf.setOnClickListener {
-            if (viewModel.inBookshelf) {
-                deleteBook()
-            } else {
-                viewModel.addToBookshelf {
-                    upTvBookshelf()
+            viewModel.bookData.value?.let { book ->
+                if (viewModel.inBookshelf) {
+                    deleteBook()
+                } else {
+                    if (book.isWebFile) {
+                        showWebFileDownloadAlert()
+                    } else {
+                        viewModel.addToBookshelf {
+                            upTvBookshelf()
+                        }
+                    }
                 }
             }
         }
@@ -493,6 +490,63 @@ class BookInfoActivity :
         }
     }
 
+    private fun showWebFileDownloadAlert(
+        onClick: ((Book) -> Unit)? = null
+    ) {
+        val webFiles = viewModel.webFiles
+        if (webFiles.isEmpty()) {
+            toastOnUi("Unexpected webFileData")
+            return
+        }
+        selector(
+            R.string.download_and_import_file,
+            webFiles
+        ) { _, webFile, _ ->
+            if (webFile.isSupported) {
+                /* import */
+                viewModel.importOrDownloadWebFile<Book>(webFile) {
+                    onClick?.invoke(it)
+                }
+            } else if (webFile.isSupportDecompress) {
+                /* 解压筛选后再选择导入项 */
+                viewModel.importOrDownloadWebFile<Uri>(webFile) { uri ->
+                    viewModel.deCompress(uri) {
+                        showDecompressFileImportAlert(it)
+                    }
+                }
+            } else {
+                alert(
+                    title = getString(R.string.draw),
+                    message = getString(R.string.file_not_supported, webFile.name)
+                ) {
+                    neutralButton(R.string.open_fun) {
+                        /* download only */
+                        viewModel.importOrDownloadWebFile<Uri>(webFile) {
+                            openFileUri(it, "*/*")
+                        }
+                    }
+                    noButton()
+                }
+            }
+        }
+    }
+
+    private fun showDecompressFileImportAlert(
+        fileDocs: List<FileDoc>
+    ) {
+        if (fileDocs.isEmpty()) {
+            toastOnUi(R.string.unsupport_archivefile_entry)
+            return
+        }
+        val selectorNames = fileDocs.map { it.name }
+        selector(
+            R.string.import_select_book,
+            selectorNames
+        ) { _, _, index ->
+            viewModel.importBook(fileDocs[index])
+        }
+    }
+
     private fun readBook(book: Book) {
         if (!viewModel.inBookshelf) {
             viewModel.saveBook(book) {
@@ -555,9 +609,16 @@ class BookInfoActivity :
         }
     }
 
-    override fun observeLiveBus() {
-        observeEvent<String>(EventBus.FILE_SOURCE_DOWNLOAD_DONE) {
-            viewModel.changeToLocalBook(it)
+    private fun upWaitDialogStatus(isShow: Boolean) {
+        val showText = "Loading....."
+        if (isShow) {
+            waitDialog.run {
+                setText(showText)
+                show()
+            }
+        } else {
+            waitDialog.dismiss()
         }
     }
+
 }

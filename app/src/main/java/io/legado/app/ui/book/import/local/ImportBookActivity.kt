@@ -16,7 +16,6 @@ import io.legado.app.R
 import io.legado.app.constant.AppConst
 import io.legado.app.constant.PreferKey
 import io.legado.app.data.appDb
-import io.legado.app.databinding.ActivityImportBookBinding
 import io.legado.app.databinding.DialogEditTextBinding
 import io.legado.app.help.config.AppConfig
 import io.legado.app.lib.dialogs.alert
@@ -28,7 +27,6 @@ import io.legado.app.ui.document.HandleFileContract
 import io.legado.app.ui.widget.SearchView
 import io.legado.app.ui.widget.SelectActionBar
 import io.legado.app.utils.*
-import io.legado.app.utils.viewbindingdelegate.viewBinding
 import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.conflate
@@ -38,12 +36,11 @@ import java.io.File
 /**
  * 导入本地书籍界面
  */
-class ImportBookActivity : BaseImportBookActivity<ActivityImportBookBinding, ImportBookViewModel>(),
+class ImportBookActivity : BaseImportBookActivity<ImportBookViewModel>(),
     PopupMenu.OnMenuItemClickListener,
     ImportBookAdapter.CallBack,
     SelectActionBar.CallBack {
 
-    override val binding by viewBinding(ActivityImportBookBinding::inflate)
     override val viewModel by viewModels<ImportBookViewModel>()
     private val adapter by lazy { ImportBookAdapter(this, this) }
     private var scanDocJob: Job? = null
@@ -63,7 +60,7 @@ class ImportBookActivity : BaseImportBookActivity<ActivityImportBookBinding, Imp
     }
 
     override fun onActivityCreated(savedInstanceState: Bundle?) {
-        binding.titleBar.setTitle(R.string.book_local)
+        searchView.queryHint = getString(R.string.screen) + "-" + getString(R.string.local_book)
         launch {
             initView()
             initEvent()
@@ -393,6 +390,10 @@ class ImportBookActivity : BaseImportBookActivity<ActivityImportBookBinding, Imp
         }
     }
 
+    override fun onSearchTextChange(newText: String?) {
+        viewModel.updateCallBackFlow(newText)
+    }
+
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
         if (!goBackDir()) {
@@ -404,5 +405,7 @@ class ImportBookActivity : BaseImportBookActivity<ActivityImportBookBinding, Imp
     override fun upCountView() {
         binding.selectActionBar.upCountView(adapter.selectedUris.size, adapter.checkableCount)
     }
+
+    override fun startRead(bookUrl: String) = startReadBook(bookUrl)
 
 }

@@ -620,7 +620,6 @@
     <string name="custom_page_key">自訂翻頁按鍵</string>
     <string name="prev_page_key">上一頁按鍵</string>
     <string name="next_page_key">下一頁按鍵</string>
-    <string name="after_add_bookshelf">先將書籍加入書架</string>
     <string name="no_group">未分組</string>
     <string name="prev_sentence">上一句</string>
     <string name="next_sentence">下一句</string>
@@ -986,7 +985,6 @@
     <string name="import_theme">匯入主題</string>
     <string name="import_txt_toc_rule">匯入txt目錄規則</string>
     <string name="auto_save_cookie">CookieJar</string>
-    <string name="click_read_button_load">點擊閱讀載入目錄</string>
     <string name="cookie">清除cookie</string>
     <string name="download_and_import_file">匯入線上書籍文件</string>
     <string name="upload_book_success">上傳成功</string>
@@ -994,7 +992,7 @@
     <string name="download_book_success">下載成功</string>
     <string name="download_book_fail">下載失敗</string>
     <string name="upload_to_remote">上傳</string>
-    <string name="add_remote_book">WebDav書籍</string>
+    <string name="add_remote_book">远程書籍</string>
     <string name="bitmap_cache_size_summary">目前最大快取 %1$s MB</string>
     <string name="bitmap_cache_size">圖片繪製快取</string>
     <string name="export_pics_file">TXT匯出圖片</string>
@@ -1086,4 +1084,5 @@
     <string name="keep_group">保留分组</string>
     <string name="server_config">服务器配置</string>
     <string name="sure_upload">远程webDav链接已存在，是否继续</string>
+    <string name="unsupport_archivefile_entry">压缩文件内没有支持的文件</string>
 </resources>

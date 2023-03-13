@@ -4,6 +4,7 @@ import io.legado.app.data.appDb
 import io.legado.app.data.entities.Book
 import io.legado.app.data.entities.BookChapter
 import io.legado.app.data.entities.TxtTocRule
+import io.legado.app.exception.EmptyFileException
 import io.legado.app.help.DefaultData
 import io.legado.app.utils.EncodingDetect
 import io.legado.app.utils.MD5Utils
@@ -98,6 +99,7 @@ class TextFile(private val book: Book) {
             LocalBook.getBookInputStream(book).use { bis ->
                 val buffer = ByteArray(bufferSize)
                 val length = bis.read(buffer)
+                if (length == -1) throw EmptyFileException("Unexpected Empty Txt File")
                 if (book.charset.isNullOrBlank()) {
                     book.charset = EncodingDetect.getEncode(buffer.copyOf(length))
                 }

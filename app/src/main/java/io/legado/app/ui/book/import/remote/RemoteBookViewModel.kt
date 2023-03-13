@@ -7,6 +7,7 @@ import io.legado.app.constant.BookType
 import io.legado.app.data.appDb
 import io.legado.app.exception.NoStackTraceException
 import io.legado.app.help.AppWebDav
+import io.legado.app.help.config.AppConfig
 import io.legado.app.lib.webdav.Authorization
 import io.legado.app.model.analyzeRule.CustomUrl
 import io.legado.app.model.localBook.LocalBook
@@ -48,6 +49,16 @@ class RemoteBookViewModel(application: Application) : BaseViewModel(application)
                 list.clear()
                 trySend(emptyList())
             }
+
+            override fun screen(key: String?) {
+                if (key.isNullOrBlank()) {
+                    trySend(list)
+                } else {
+                    trySend(
+                        list.filter { it.filename.contains(key) }
+                    )
+                }
+            }
         }
 
         awaitClose {
@@ -79,16 +90,10 @@ class RemoteBookViewModel(application: Application) : BaseViewModel(application)
 
     fun initData(onSuccess: () -> Unit) {
         execute {
-            val config = appDb.serverDao.get(10001)?.getConfigJsonObject()
-            if (config != null && config.has("url")) {
-                val url = config.getString("url")
-                if (url.isNotBlank()) {
-                    val user = config.getString("user")
-                    val password = config.getString("password")
-                    val authorization = Authorization(user, password)
-                    remoteBookWebDav = RemoteBookWebDav(url, authorization, 10001)
-                    return@execute
-                }
+            appDb.serverDao.get(AppConfig.remoteServerId)?.getWebDavConfig()?.let {
+                val authorization = Authorization(it)
+                remoteBookWebDav = RemoteBookWebDav(it.url, authorization, AppConfig.remoteServerId)
+                return@execute
             }
             remoteBookWebDav = AppWebDav.defaultBookWebDav
                 ?: throw NoStackTraceException("webDav没有配置")
@@ -142,6 +147,10 @@ class RemoteBookViewModel(application: Application) : BaseViewModel(application)
         }
     }
 
+    fun updateCallBackFlow(filterKey: String?) {
+       dataCallback?.screen(filterKey)
+    }
+
     interface DataCallback {
 
         fun setItems(remoteFiles: List<RemoteBook>)
@@ -149,6 +158,8 @@ class RemoteBookViewModel(application: Application) : BaseViewModel(application)
         fun addItems(remoteFiles: List<RemoteBook>)
 
         fun clear()
+
+        fun screen(key: String?)
 
     }
 }

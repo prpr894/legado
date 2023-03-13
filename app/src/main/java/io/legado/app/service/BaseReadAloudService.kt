@@ -138,7 +138,7 @@ abstract class BaseReadAloudService : BaseService(),
             IntentAction.nextParagraph -> nextP()
             IntentAction.addTimer -> addTimer()
             IntentAction.setTimer -> setTimer(intent.getIntExtra("minute", 0))
-            else -> stopSelf()
+            IntentAction.stop -> stopSelf()
         }
         return super.onStartCommand(intent, flags, startId)
     }
@@ -268,6 +268,7 @@ abstract class BaseReadAloudService : BaseService(),
         }
         val requestFocus = MediaHelp.requestFocus(mFocusRequest)
         if (!requestFocus) {
+            pauseReadAloud(false)
             toastOnUi("未获取到音频焦点")
         }
         return requestFocus

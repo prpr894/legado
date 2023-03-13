@@ -7,7 +7,6 @@
 
     <io.legado.app.ui.widget.TitleBar
         android:id="@+id/titleBar"
-        app:contentLayout="@layout/view_search"
         app:displayHomeAsUp="true"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

@@ -44,9 +44,6 @@ class ImportBookActivity : BaseImportBookActivity<ImportBookViewModel>(),
     override val viewModel by viewModels<ImportBookViewModel>()
     private val adapter by lazy { ImportBookAdapter(this, this) }
     private var scanDocJob: Job? = null
-    private val searchView: SearchView by lazy {
-        binding.titleBar.findViewById(R.id.search_view)
-    }
     private var menuItem: MenuItem? = null
 
     private var searchSelectIndex = -1

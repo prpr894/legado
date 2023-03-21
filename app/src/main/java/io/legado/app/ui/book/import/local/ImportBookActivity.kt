@@ -15,7 +15,6 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import io.legado.app.R
 import io.legado.app.constant.AppConst
 import io.legado.app.constant.PreferKey
-import io.legado.app.data.appDb
 import io.legado.app.databinding.DialogEditTextBinding
 import io.legado.app.help.config.AppConfig
 import io.legado.app.lib.dialogs.alert
@@ -57,7 +56,7 @@ class ImportBookActivity : BaseImportBookActivity<ImportBookViewModel>(),
     }
 
     override fun onActivityCreated(savedInstanceState: Bundle?) {
-        searchView.queryHint = getString(R.string.screen) + "-" + getString(R.string.local_book)
+        searchView.queryHint = getString(R.string.screen) + " • " + getString(R.string.local_book)
         launch {
             initView()
             initEvent()
@@ -235,11 +234,6 @@ class ImportBookActivity : BaseImportBookActivity<ImportBookViewModel>(),
             initRootDoc()
         }
         launch {
-            appDb.bookDao.flowLocalUri().conflate().collect {
-                adapter.upBookHas(it)
-            }
-        }
-        launch {
             viewModel.dataFlow.conflate().collect { docs ->
                 adapter.setItems(docs)
             }
@@ -403,6 +397,12 @@ class ImportBookActivity : BaseImportBookActivity<ImportBookViewModel>(),
         binding.selectActionBar.upCountView(adapter.selectedUris.size, adapter.checkableCount)
     }
 
-    override fun startRead(bookUrl: String) = startReadBook(bookUrl)
+    override fun startRead(fileDoc: FileDoc) {
+        if (!ArchiveUtils.isArchive(fileDoc.name)) {
+            startReadBook(fileDoc.toString())
+        } else {
+            onArchiveFileClick(fileDoc)
+        }
+    }
 
 }

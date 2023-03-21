@@ -141,6 +141,10 @@ class BookshelfFragment1 : BaseBookshelfFragment(R.layout.fragment_bookshelf),
             if (fragment.groupId != group?.groupId) {
                 return POSITION_NONE
             }
+            val bookSort = group.getRealBookSort()
+            if (fragment.bookSort != bookSort) {
+                fragment.upBookSort(bookSort)
+            }
             return POSITION_UNCHANGED
         }
 

@@ -1,7 +1,11 @@
-package io.legado.app.utils
+package io.legado.app.utils.compress
 
+import io.legado.app.utils.DebugLog
+import io.legado.app.utils.printOnDebug
 import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.withContext
+import org.apache.commons.compress.archivers.ArchiveEntry
+import org.apache.commons.compress.archivers.zip.ZipArchiveInputStream
 import java.io.*
 import java.util.zip.*
 
@@ -174,16 +178,49 @@ object ZipUtils {
         return true
     }
 
-    fun unZipToPath(inputStream: InputStream, path: String) {
-        val zipInputStream = ZipInputStream(inputStream)
-        unZipToPath(zipInputStream, path)
+    @Throws(SecurityException::class)
+    fun unZipToPath(file: File, path: String, filter: ((String) -> Boolean)? = null): List<File> {
+        return FileInputStream(file).use {
+            unZipToPath(it, path, filter)
+        }
     }
 
-    fun unZipToPath(zipInputStream: ZipInputStream, path: String) {
-        var entry: ZipEntry
+    @Throws(SecurityException::class)
+    fun unZipToPath(file: File, dir: File, filter: ((String) -> Boolean)? = null): List<File> {
+        return FileInputStream(file).use {
+            unZipToPath(it, dir, filter)
+        }
+    }
+
+    @Throws(SecurityException::class)
+    fun unZipToPath(inputStream: InputStream, path: String, filter: ((String) -> Boolean)? = null): List<File> {
+        return ZipArchiveInputStream(inputStream).use {
+            unZipToPath(it, File(path), filter)
+        }
+    }
+
+    @Throws(SecurityException::class)
+    fun unZipToPath(inputStream: InputStream, dir: File, filter: ((String) -> Boolean)? = null): List<File> {
+        return ZipArchiveInputStream(inputStream).use {
+            unZipToPath(it, dir, filter)
+        }
+    }
+
+    @Throws(SecurityException::class)
+    private fun unZipToPath(
+        zipInputStream: ZipArchiveInputStream,
+        dir: File,
+        filter: ((String) -> Boolean)? = null
+    ): List<File> {
+        val files = arrayListOf<File>()
+        var entry: ArchiveEntry?
         while (zipInputStream.nextEntry.also { entry = it } != null) {
-            val entryFile = File(path, entry.name)
-            if (entry.isDirectory) {
+            val entryName = entry!!.name
+            val entryFile = File(dir, entryName)
+            if (!entryFile.canonicalPath.startsWith(dir.canonicalPath)) {
+                throw SecurityException("压缩文件只能解压到指定路径")
+            }
+            if (entry!!.isDirectory) {
                 if (!entryFile.exists()) {
                     entryFile.mkdirs()
                 }
@@ -192,6 +229,7 @@ object ZipUtils {
             if (entryFile.parentFile?.exists() != true) {
                 entryFile.parentFile?.mkdirs()
             }
+            if (filter != null && !filter.invoke(entryName)) continue
             if (!entryFile.exists()) {
                 entryFile.createNewFile()
                 entryFile.setReadable(true)
@@ -199,130 +237,39 @@ object ZipUtils {
             }
             FileOutputStream(entryFile).use {
                 zipInputStream.copyTo(it)
-            }
-        }
-        zipInputStream.close()
-    }
-
-    /**
-     * Unzip the file.
-     *
-     * @param zipFilePath The path of ZIP file.
-     * @param destDirPath The path of destination directory.
-     * @return the unzipped files
-     * @throws IOException if unzip unsuccessfully
-     */
-    @Throws(IOException::class)
-    fun unzipFile(zipFilePath: String, destDirPath: String): List<File>? {
-        return unzipFileByKeyword(zipFilePath, destDirPath, null)
-    }
-
-    /**
-     * Unzip the file.
-     *
-     * @param zipFile The ZIP file.
-     * @param destDir The destination directory.
-     * @return the unzipped files
-     * @throws IOException if unzip unsuccessfully
-     */
-    @Throws(IOException::class)
-    fun unzipFile(
-        zipFile: File,
-        destDir: File
-    ): List<File>? {
-        return unzipFileByKeyword(zipFile, destDir, null)
-    }
-
-    /**
-     * Unzip the file by keyword.
-     *
-     * @param zipFilePath The path of ZIP file.
-     * @param destDirPath The path of destination directory.
-     * @param keyword     The keyboard.
-     * @return the unzipped files
-     * @throws IOException if unzip unsuccessfully
-     */
-    @Throws(IOException::class)
-    fun unzipFileByKeyword(
-        zipFilePath: String,
-        destDirPath: String,
-        keyword: String?
-    ): List<File>? {
-        return unzipFileByKeyword(
-            getFileByPath(zipFilePath),
-            getFileByPath(destDirPath),
-            keyword
-        )
-    }
-
-    /**
-     * Unzip the file by keyword.
-     *
-     * @param zipFile The ZIP file.
-     * @param destDir The destination directory.
-     * @param keyword The keyboard.
-     * @return the unzipped files
-     * @throws IOException if unzip unsuccessfully
-     */
-    @Throws(IOException::class)
-    fun unzipFileByKeyword(
-        zipFile: File?,
-        destDir: File?,
-        keyword: String?
-    ): List<File>? {
-        if (zipFile == null || destDir == null) return null
-        val files = ArrayList<File>()
-        val zip = ZipFile(zipFile)
-        val entries = zip.entries()
-        zip.use {
-            if (isSpace(keyword)) {
-                while (entries.hasMoreElements()) {
-                    val entry = entries.nextElement() as ZipEntry
-                    val entryName = entry.name
-                    if (entryName.contains("../")) {
-                        DebugLog.e(javaClass.name, "entryName: $entryName is dangerous!")
-                        continue
-                    }
-                    if (!unzipChildFile(destDir, files, zip, entry, entryName)) return files
-                }
-            } else {
-                while (entries.hasMoreElements()) {
-                    val entry = entries.nextElement() as ZipEntry
-                    val entryName = entry.name
-                    if (entryName.contains("../")) {
-                        DebugLog.e(javaClass.name, "entryName: $entryName is dangerous!")
-                        continue
-                    }
-                    if (entryName.contains(keyword!!)) {
-                        if (!unzipChildFile(destDir, files, zip, entry, entryName)) return files
-                    }
-                }
+                files.add(entryFile)
             }
         }
         return files
     }
 
-    @Throws(IOException::class)
-    private fun unzipChildFile(
-        destDir: File,
-        files: MutableList<File>,
-        zip: ZipFile,
-        entry: ZipEntry,
-        name: String
-    ): Boolean {
-        val file = File(destDir, name)
-        files.add(file)
-        if (entry.isDirectory) {
-            return createOrExistsDir(file)
-        } else {
-            if (!createOrExistsFile(file)) return false
-            BufferedInputStream(zip.getInputStream(entry)).use { `in` ->
-                BufferedOutputStream(FileOutputStream(file)).use { out ->
-                    out.write(`in`.readBytes())
-                }
-            }
+    /* 遍历目录获取所有文件名 */
+    @Throws(SecurityException::class)
+    fun getFilesName(
+        inputStream: InputStream,
+        filter: ((String) -> Boolean)? = null
+    ): List<String> {
+        return ZipArchiveInputStream(inputStream).use {
+            getFilesName(it, filter)
         }
-        return true
+    }
+
+    @Throws(SecurityException::class)
+    private fun getFilesName(
+        zipInputStream: ZipArchiveInputStream,
+        filter: ((String) -> Boolean)? = null
+    ): List<String> {
+        val fileNames = mutableListOf<String>()
+        var entry: ArchiveEntry?
+        while (zipInputStream.nextEntry.also { entry = it } != null) {
+            if (entry!!.isDirectory) {
+                continue
+            }
+            val fileName = entry!!.name
+            if (filter != null && filter.invoke(fileName))
+            fileNames.add(fileName)
+        }
+        return fileNames
     }
 
     /**

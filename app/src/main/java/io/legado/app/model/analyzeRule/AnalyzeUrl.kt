@@ -76,6 +76,7 @@ class AnalyzeUrl(
     private var webJs: String? = null
     private val enabledCookieJar = source?.enabledCookieJar ?: false
     private val domain: String
+
     // 服务器ID
     var serverID: Long? = null
         private set
@@ -112,29 +113,27 @@ class AnalyzeUrl(
      */
     private fun analyzeJs() {
         var start = 0
-        var tmp: String
         val jsMatcher = JS_PATTERN.matcher(ruleUrl)
-        var hasRule = true
+        var result = ruleUrl
         while (jsMatcher.find()) {
             if (jsMatcher.start() > start) {
-                tmp =
-                    ruleUrl.substring(start, jsMatcher.start()).trim { it <= ' ' }
-                if (tmp.isNotEmpty()) {
-                    ruleUrl = tmp.replace("@result", ruleUrl)
+                ruleUrl.substring(start, jsMatcher.start()).trim().let {
+                    if (it.isNotEmpty()) {
+                        result = it.replace("@result", result)
+                    }
                 }
             }
-            ruleUrl = evalJS(jsMatcher.group(2) ?: jsMatcher.group(1), ruleUrl) as String
+            result = evalJS(jsMatcher.group(2) ?: jsMatcher.group(1), result) as String
             start = jsMatcher.end()
-            if (jsMatcher.group(0)!!.startsWith("@js:", true)) {
-                hasRule = false
+        }
+        if (ruleUrl.length > start) {
+            ruleUrl.substring(start).trim().let {
+                if (it.isNotEmpty()) {
+                    result = it.replace("@result", result)
+                }
             }
         }
-        if (ruleUrl.length > start && hasRule) {
-            tmp = ruleUrl.substring(start).trim { it <= ' ' }
-            if (tmp.isNotEmpty()) {
-                ruleUrl = tmp.replace("@result", ruleUrl)
-            }
-        }
+        ruleUrl = result
     }
 
     /**
@@ -284,8 +283,8 @@ class AnalyzeUrl(
                 return it.title
             }
         }
-        return chapter?.getVariable(key)
-            ?: ruleData?.getVariable(key)
+        return chapter?.getVariable(key)?.takeIf { it.isNotEmpty() }
+            ?: ruleData?.getVariable(key)?.takeIf { it.isNotEmpty() }
             ?: ""
     }
 
@@ -373,7 +372,15 @@ class AnalyzeUrl(
         if (type != null) {
             return StrResponse(url, HexUtil.encodeHexStr(getByteArrayAwait()))
         }
-        val concurrentRecord = fetchStart()
+        var concurrentRecord: ConcurrentRecord?
+        while (true) {
+            try {
+                concurrentRecord = fetchStart()
+                break
+            } catch (e: ConcurrentException) {
+                delay(e.waitTime.toLong())
+            }
+        }
         try {
             setCookie()
             val strResponse: StrResponse
@@ -440,24 +447,6 @@ class AnalyzeUrl(
         }
     }
 
-    /**
-     * 访问网站,返回StrResponse
-     * 并发异常自动重试
-     */
-    suspend fun getStrResponseConcurrentAwait(
-        jsStr: String? = null,
-        sourceRegex: String? = null,
-        useWebView: Boolean = true,
-    ): StrResponse {
-        while (true) {
-            try {
-                return getStrResponseAwait(jsStr, sourceRegex, useWebView)
-            } catch (e: ConcurrentException) {
-                delay(e.waitTime.toLong())
-            }
-        }
-    }
-
     @JvmOverloads
     @Throws(ConcurrentException::class)
     fun getStrResponse(
@@ -475,7 +464,15 @@ class AnalyzeUrl(
      */
     @Throws(ConcurrentException::class)
     suspend fun getResponseAwait(): Response {
-        val concurrentRecord = fetchStart()
+        var concurrentRecord: ConcurrentRecord?
+        while (true) {
+            try {
+                concurrentRecord = fetchStart()
+                break
+            } catch (e: ConcurrentException) {
+                delay(e.waitTime.toLong())
+            }
+        }
         try {
             setCookie()
             @Suppress("BlockingMethodInNonBlockingContext")

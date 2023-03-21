@@ -375,7 +375,6 @@
     <string name="page_anim_simulation">模擬</string>
     <string name="page_anim_scroll">滾動</string>
     <string name="page_anim_none">無動畫</string>
-    <string name="donate_s">此書源使用了進階功能，請到捐贈裡點擊支付寶紅包搜尋碼領取紅包開啟。</string>
     <string name="up_change_source_last_chapter_t">後台更新換源最新章節</string>
     <string name="up_change_source_last_chapter_s">開啟則會在軟體打開1分鐘後開始更新</string>
     <string name="behavior_main_t">書架ToolBar自動隱藏</string>
@@ -1085,4 +1084,8 @@
     <string name="server_config">服务器配置</string>
     <string name="sure_upload">远程webDav链接已存在，是否继续</string>
     <string name="unsupport_archivefile_entry">压缩文件内没有支持的文件</string>
+    <string name="no_books_dir">没有设置书籍保存位置!</string>
+    <string name="delete_alert">删除提醒</string>
+    <string name="no_book_found_bookshelf">未在书架上找到所选书籍, 是否重新导入？</string>
+    <string name="archive_not_found">未能在书籍保存目录找到压缩文件，是否重新导入？</string>
 </resources>

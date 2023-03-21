@@ -372,7 +372,6 @@
     <string name="page_anim_simulation">Simulación</string>
     <string name="page_anim_scroll">Desplazado</string>
     <string name="page_anim_none">Ninguno</string>
-    <string name="donate_s">La fuente de este libro utiliza funciones avanzadas, para desbloquear diríjase a Donaciones y toque el código de búsqueda del sobre rojo de Alipay para recibir ese sobre.</string>
     <string name="up_change_source_last_chapter_t">Actualiza el último capítulo después del cambio de fuente en segundo plano</string>
     <string name="up_change_source_last_chapter_s">si está habilitado, la actualización comenzará 1 minuto después de que se abra la aplicación</string>
     <string name="behavior_main_t">Ocultar automáticamente la barra de herramientas</string>
@@ -1083,4 +1082,8 @@
     <string name="server_config">服务器配置</string>
     <string name="sure_upload">Remote webDav url exists, Continue?</string>
     <string name="unsupport_archivefile_entry">Cannot find supported files in archive</string>
+    <string name="no_books_dir">没有设置书籍保存位置!</string>
+    <string name="delete_alert">删除提醒</string>
+    <string name="no_book_found_bookshelf">No book found in bookshelf, import again ?</string>
+    <string name="archive_not_found">Can not find archive selected, continue to download ?</string>
 </resources>

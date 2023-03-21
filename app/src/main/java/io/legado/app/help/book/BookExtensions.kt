@@ -3,6 +3,9 @@
 package io.legado.app.help.book
 
 import android.net.Uri
+import com.script.SimpleBindings
+import io.legado.app.constant.AppConst
+import io.legado.app.constant.AppLog
 import io.legado.app.constant.BookSourceType
 import io.legado.app.constant.BookType
 import io.legado.app.data.appDb
@@ -51,6 +54,17 @@ val Book.isWebFile: Boolean
 
 val Book.isUpError: Boolean
     get() = isType(BookType.updateError)
+
+val Book.isArchive: Boolean
+    get() = isType(BookType.archive)
+
+val Book.archiveName: String
+    get() {
+        if (!isArchive) throw NoStackTraceException("Book is not deCompressed from archive")
+        // local_book::archive.rar
+        // webDav::https://...../archive.rar
+        return origin.substringAfter("::").substringAfterLast("/")
+    }
 
 fun Book.contains(word: String?): Boolean {
     if (word.isNullOrEmpty()) {
@@ -126,6 +140,17 @@ fun Book.getLocalUri(): Uri {
     return uri
 }
 
+
+fun Book.getArchiveUri(): Uri? {
+    val defaultBookDir = AppConfig.defaultBookTreeUri
+    return if (isArchive && !defaultBookDir.isNullOrBlank()) {
+        FileDoc.fromUri(Uri.parse(defaultBookDir), true)
+            .find(archiveName)?.uri
+    } else {
+        null
+    }
+}
+
 fun Book.cacheLocalUri(uri: Uri) {
     localUriCache[bookUrl] = uri
 }
@@ -136,7 +161,7 @@ fun Book.removeLocalUriCache() {
 
 fun Book.getRemoteUrl(): String? {
     if (origin.startsWith(BookType.webDavTag)) {
-        return origin.substring(8)
+        return origin.substring(BookType.webDavTag.length)
     }
     return null
 }
@@ -172,7 +197,7 @@ fun Book.upType() {
             BookSourceType.file -> BookType.webFile
             else -> BookType.text
         }
-        if (origin == "loc_book" || origin.startsWith(BookType.webDavTag)) {
+        if (origin == BookType.localTag || origin.startsWith(BookType.webDavTag)) {
             type = type or BookType.local
         }
     }
@@ -201,4 +226,19 @@ fun Book.isSameNameAuthor(other: Any?): Boolean {
         return name == other.name && author == other.author
     }
     return false
+}
+
+fun Book.getExportFileName(suffix: String): String {
+    val jsStr = AppConfig.bookExportFileName
+    if (jsStr.isNullOrBlank()) {
+        return "${name} 作者：${getRealAuthor()}.$suffix"
+    }
+    val bindings = SimpleBindings()
+    bindings["name"] = name
+    bindings["author"] = getRealAuthor()
+    return kotlin.runCatching {
+        AppConst.SCRIPT_ENGINE.eval(jsStr, bindings).toString() + "." + suffix
+    }.onFailure {
+        AppLog.put("导出书名规则错误,使用默认规则\n${it.localizedMessage}", it)
+    }.getOrDefault("${name} 作者：${getRealAuthor()}.$suffix")
 }

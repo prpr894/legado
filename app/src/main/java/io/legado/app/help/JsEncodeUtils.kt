@@ -4,7 +4,10 @@ import android.util.Base64
 import cn.hutool.crypto.digest.DigestUtil
 import cn.hutool.crypto.digest.HMac
 import cn.hutool.crypto.symmetric.SymmetricCrypto
+import io.legado.app.help.crypto.AsymmetricCrypto
+import io.legado.app.help.crypto.Sign
 import io.legado.app.utils.MD5Utils
+
 
 /**
  * js加解密扩展类, 在js中通过java变量调用
@@ -66,7 +69,21 @@ interface JsEncodeUtils {
             transformation, key.encodeToByteArray(), iv?.encodeToByteArray()
         )
     }
+    //******************非对称加密解密************************//
 
+    /* keys都为null时使用随机密钥 */
+    fun createAsymmetricCrypto(
+        transformation: String
+    ): AsymmetricCrypto {
+        return AsymmetricCrypto(transformation)
+    }
+
+    //******************签名************************//
+    fun createSign(
+        algorithm: String
+    ): Sign {
+        return Sign(algorithm)
+    }
     //******************对称加密解密old************************//
 
     /////AES

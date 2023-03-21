@@ -17,7 +17,6 @@ import io.legado.app.data.appDb
 import io.legado.app.data.entities.BookSource
 import io.legado.app.data.entities.rule.*
 import io.legado.app.databinding.ActivityBookSourceEditBinding
-import io.legado.app.databinding.DialogEditTextBinding
 import io.legado.app.help.config.LocalConfig
 import io.legado.app.lib.dialogs.SelectItem
 import io.legado.app.lib.dialogs.alert
@@ -31,6 +30,7 @@ import io.legado.app.ui.login.SourceLoginActivity
 import io.legado.app.ui.qrcode.QrCodeResult
 import io.legado.app.ui.widget.dialog.TextDialog
 import io.legado.app.ui.widget.dialog.UrlOptionDialog
+import io.legado.app.ui.widget.dialog.VariableDialog
 import io.legado.app.ui.widget.keyboard.KeyboardToolPop
 import io.legado.app.ui.widget.text.EditEntity
 import io.legado.app.utils.*
@@ -41,7 +41,8 @@ import kotlinx.coroutines.withContext
 
 class BookSourceEditActivity :
     VMBaseActivity<ActivityBookSourceEditBinding, BookSourceEditViewModel>(false),
-    KeyboardToolPop.CallBack {
+    KeyboardToolPop.CallBack,
+    VariableDialog.Callback {
 
     override val binding by viewBinding(ActivityBookSourceEditBinding::inflate)
     override val viewModel by viewModels<BookSourceEditViewModel>()
@@ -102,20 +103,14 @@ class BookSourceEditActivity :
 
     override fun onCompatOptionsItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
-            R.id.menu_save -> getSource().let { source ->
-                if (!source.equal(viewModel.bookSource ?: BookSource())) {
-                    source.lastUpdateTime = System.currentTimeMillis()
-                }
-                if (checkSource(source)) {
-                    viewModel.save(source) { setResult(Activity.RESULT_OK); finish() }
-                }
+            R.id.menu_save -> viewModel.save(getSource()) {
+                setResult(Activity.RESULT_OK)
+                finish()
             }
-            R.id.menu_debug_source -> getSource().let { source ->
-                if (checkSource(source)) {
-                    viewModel.save(source) {
-                        startActivity<BookSourceDebugActivity> {
-                            putExtra("key", source.bookSourceUrl)
-                        }
+            R.id.menu_debug_source -> viewModel.save(getSource()) { source ->
+                viewModel.save(source) {
+                    startActivity<BookSourceDebugActivity> {
+                        putExtra("key", source.bookSourceUrl)
                     }
                 }
             }
@@ -131,14 +126,10 @@ class BookSourceEditActivity :
                 ErrorCorrectionLevel.L
             )
             R.id.menu_help -> showHelp("ruleHelp")
-            R.id.menu_login -> getSource().let { source ->
-                if (checkSource(source)) {
-                    viewModel.save(source) {
-                        startActivity<SourceLoginActivity> {
-                            putExtra("type", "bookSource")
-                            putExtra("key", source.bookSourceUrl)
-                        }
-                    }
+            R.id.menu_login -> viewModel.save(getSource()) { source ->
+                startActivity<SourceLoginActivity> {
+                    putExtra("type", "bookSource")
+                    putExtra("key", source.bookSourceUrl)
                 }
             }
             R.id.menu_set_source_variable -> setSourceVariable()
@@ -514,14 +505,6 @@ class BookSourceEditActivity :
         return source
     }
 
-    private fun checkSource(source: BookSource): Boolean {
-        if (source.bookSourceUrl.isBlank() || source.bookSourceName.isBlank()) {
-            toastOnUi(R.string.non_null_name_url)
-            return false
-        }
-        return true
-    }
-
     private fun alertGroups() {
         launch {
             val groups = withContext(IO) {
@@ -593,29 +576,24 @@ class BookSourceEditActivity :
     }
 
     private fun setSourceVariable() {
-        launch {
-            val source = viewModel.bookSource
-            if (source == null) {
-                toastOnUi("先保存书源")
-                return@launch
-            }
-            val variable = withContext(IO) { source.getVariable() }
-            alert(R.string.set_source_variable) {
-                setMessage(source.getDisplayVariableComment("源变量可在js中通过source.getVariable()获取"))
-                val alertBinding = DialogEditTextBinding.inflate(layoutInflater).apply {
-                    editView.hint = "source variable"
-                    editView.setText(variable)
-                }
-                customView { alertBinding.root }
-                okButton {
-                    viewModel.bookSource?.setVariable(alertBinding.editView.text?.toString())
-                }
-                cancelButton()
-                neutralButton(R.string.delete) {
-                    viewModel.bookSource?.setVariable(null)
-                }
+        viewModel.save(getSource()) { source ->
+            launch {
+                val comment = source.getDisplayVariableComment("源变量可在js中通过source.getVariable()获取")
+                val variable = withContext(IO) { source.getVariable() }
+                showDialogFragment(
+                    VariableDialog(
+                        getString(R.string.set_source_variable),
+                        source.getKey(),
+                        variable,
+                        comment
+                    )
+                )
             }
         }
+    }
+
+    override fun setVariable(key: String, variable: String?) {
+        viewModel.bookSource?.setVariable(variable)
     }
 
 }

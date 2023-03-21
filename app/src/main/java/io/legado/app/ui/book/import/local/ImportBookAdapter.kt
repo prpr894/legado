@@ -8,7 +8,11 @@ import io.legado.app.R
 import io.legado.app.base.adapter.ItemViewHolder
 import io.legado.app.base.adapter.RecyclerAdapter
 import io.legado.app.constant.AppConst
+import io.legado.app.data.entities.Book
 import io.legado.app.databinding.ItemImportBookBinding
+import io.legado.app.help.book.archiveName
+import io.legado.app.help.book.isArchive
+import io.legado.app.model.localBook.LocalBook
 import io.legado.app.lib.theme.ThemeUtils
 import io.legado.app.utils.*
 
@@ -55,7 +59,7 @@ class ImportBookAdapter(context: Context, val callBack: CallBack) :
                     llBrief.gone()
                     cbSelect.isChecked = false
                 } else {
-                    if (bookNamesOnBookShelf.contains(item.name)) {
+                    if (isOnBookShelf(item)) {
                         ivIcon.setImageResource(R.drawable.ic_book_has)
                         ivIcon.visible()
                         cbSelect.invisible()
@@ -87,7 +91,7 @@ class ImportBookAdapter(context: Context, val callBack: CallBack) :
             getItem(holder.layoutPosition)?.let {
                 if (it.isDir) {
                     callBack.nextDoc(it)
-                } else if (!bookNamesOnBookShelf.contains(it.name)) {
+                } else if (!isOnBookShelf(it)) {
                     if (!selectedUris.contains(it.toString())) {
                         selectedUris.add(it.toString())
                     } else {
@@ -97,27 +101,20 @@ class ImportBookAdapter(context: Context, val callBack: CallBack) :
                     callBack.upCountView()
                 } else {
                     /* 点击开始阅读 */
-                    callBack.startRead(it.toString())
+                    callBack.startRead(it)
                 }
             }
         }
     }
 
-    @SuppressLint("NotifyDataSetChanged")
-    fun upBookHas(bookUrls: List<String>) {
-        bookNamesOnBookShelf.clear()
-        bookUrls.forEach {
-            val path = Uri.decode(it)
-            bookNamesOnBookShelf.add(FileUtils.getName(path))
-        }
-        notifyDataSetChanged()
-        upCheckableCount()
+    private fun isOnBookShelf(fileDoc: FileDoc): Boolean {
+        return LocalBook.isOnBookShelf(fileDoc.name)
     }
 
     private fun upCheckableCount() {
         checkableCount = 0
         getItems().forEach {
-            if (!it.isDir && !bookNamesOnBookShelf.contains(it.name)) {
+            if (!it.isDir && !isOnBookShelf(it)) {
                 checkableCount++
             }
         }
@@ -128,7 +125,7 @@ class ImportBookAdapter(context: Context, val callBack: CallBack) :
     fun selectAll(selectAll: Boolean) {
         if (selectAll) {
             getItems().forEach {
-                if (!it.isDir && !bookNamesOnBookShelf.contains(it.name)) {
+                if (!it.isDir && !isOnBookShelf(it)) {
                     selectedUris.add(it.toString())
                 }
             }
@@ -141,7 +138,7 @@ class ImportBookAdapter(context: Context, val callBack: CallBack) :
 
     fun revertSelection() {
         getItems().forEach {
-            if (!it.isDir && !bookNamesOnBookShelf.contains(it.name)) {
+            if (!it.isDir && !isOnBookShelf(it)) {
                 if (selectedUris.contains(it.toString())) {
                     selectedUris.remove(it.toString())
                 } else {
@@ -164,7 +161,7 @@ class ImportBookAdapter(context: Context, val callBack: CallBack) :
     interface CallBack {
         fun nextDoc(fileDoc: FileDoc)
         fun upCountView()
-        fun startRead(bookUrl: String)
+        fun startRead(fileDoc: FileDoc)
     }
 
 }

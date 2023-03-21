@@ -20,6 +20,7 @@ import io.legado.app.help.config.ReadBookConfig
 import io.legado.app.help.config.ThemeConfig
 import io.legado.app.model.localBook.LocalBook
 import io.legado.app.utils.*
+import io.legado.app.utils.compress.ZipUtils
 import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.Dispatchers.Main
 import kotlinx.coroutines.delay
@@ -41,7 +42,7 @@ object Restore {
                     ZipUtils.unZipToPath(it, Backup.backupPath)
                 }
             } else {
-                ZipUtils.unzipFile(uri.path!!, Backup.backupPath)
+                ZipUtils.unZipToPath(File(uri.path!!), Backup.backupPath)
             }
         }.onFailure {
             AppLog.put("恢复复制文件出错\n${it.localizedMessage}", it)

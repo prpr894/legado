@@ -376,7 +376,6 @@
     <string name="page_anim_simulation">Simulation</string>
     <string name="page_anim_scroll">Scroll</string>
     <string name="page_anim_none">None</string>
-    <string name="donate_s">This book source uses advanced features, please go to the Donations and tap the Alipay red envelope search code to receive the red envelope,then you can use it.</string>
     <string name="up_change_source_last_chapter_t">Update the latest chapter after changed origin in the background</string>
     <string name="up_change_source_last_chapter_s">if enabled,the update will start 1 minute later when the software is run</string>
     <string name="behavior_main_t">Auto hide ToolBar</string>
@@ -1086,4 +1085,8 @@
     <string name="server_config">服务器配置</string>
     <string name="sure_upload">Remote webDav url exists, Continue?</string>
     <string name="unsupport_archivefile_entry">Cannot find supported files in archive</string>
+    <string name="no_books_dir">没有设置书籍保存位置!</string>
+    <string name="delete_alert">删除提醒</string>
+    <string name="no_book_found_bookshelf">No book found in bookshelf, import again ?</string>
+    <string name="archive_not_found">Can not find archive selected, continue to download ?</string>
 </resources>

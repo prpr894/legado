@@ -201,11 +201,18 @@ class AnalyzeRule(
         return getString(ruleList, mContent, isUrl)
     }
 
+    fun getString(ruleStr: String?, unescape: Boolean): String {
+        if (TextUtils.isEmpty(ruleStr)) return ""
+        val ruleList = splitSourceRule(ruleStr)
+        return getString(ruleList, unescape = unescape)
+    }
+
     @JvmOverloads
     fun getString(
         ruleList: List<SourceRule>,
         mContent: Any? = null,
-        isUrl: Boolean = false
+        isUrl: Boolean = false,
+        unescape: Boolean = true
     ): String {
         var result: Any? = null
         val content = mContent ?: this.content
@@ -239,13 +246,15 @@ class AnalyzeRule(
             }
         }
         if (result == null) result = ""
-        val str = kotlin.runCatching {
-            Entities.unescape(result.toString())
-        }.onFailure {
-            log("Entities.unescape() error\n${it.localizedMessage}")
-        }.getOrElse {
-            result.toString()
-        }
+        val str = if (unescape) {
+            kotlin.runCatching {
+                Entities.unescape(result.toString())
+            }.onFailure {
+                log("Entities.unescape() error\n${it.localizedMessage}")
+            }.getOrElse {
+                result.toString()
+            }
+        } else result.toString()
         if (isUrl) {
             return if (str.isBlank()) {
                 baseUrl ?: ""
@@ -633,10 +642,10 @@ class AnalyzeRule(
                 return it.title
             }
         }
-        return chapter?.getVariable(key)
-            ?: book?.getVariable(key)
-            ?: ruleData?.getVariable(key)
-            ?: source?.get(key)
+        return chapter?.getVariable(key)?.takeIf { it.isNotEmpty() }
+            ?: book?.getVariable(key)?.takeIf { it.isNotEmpty() }
+            ?: ruleData?.getVariable(key)?.takeIf { it.isNotEmpty() }
+            ?: source?.get(key)?.takeIf { it.isNotEmpty() }
             ?: ""
     }
 
@@ -666,7 +675,12 @@ class AnalyzeRule(
     /**
      * js实现跨域访问,不能删
      */
-    override fun ajax(urlStr: String): String? {
+    override fun ajax(url: Any): String? {
+        val urlStr = if (url is List<*>) {
+            url.firstOrNull().toString()
+        } else {
+            url.toString()
+        }
         return runBlocking {
             kotlin.runCatching {
                 val analyzeUrl = AnalyzeUrl(urlStr, source = source, ruleData = book)

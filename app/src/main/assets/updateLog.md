@@ -11,7 +11,34 @@
 * 正文出现缺字漏字、内容缺失、排版错乱等情况，有可能是净化规则或简繁转换出现问题。
 * 漫画源看书显示乱码，**阅读与其他软件的源并不通用**，请导入阅读的支持的漫画源！
 
-**2023/03/19**
+**2023/03/30**
+
+* 原app最低支持版本提升到android7.0
+* 创建lollipop版本支持android5.0
+
+**2023/03/29**
+
+* 修复低于android7.0版本无法恢复备份的问题
+* 修复低版本安卓崩溃的问题
+
+**2023/03/28**
+
+* 更新cronet: 111.0.5563.115
+* 更新rhino: 1.7.14-2
+* 修复bug
+* 详情页下拉刷新
+* 导出为本地文件时不保留vip标识
+* 列表结果为NativeObject时支持{{}}@get@put##规则
+
+```
+{bookId: 1}
+https://www.example.com/book/{{result.bookId}}
+```
+
+* 书架整理搜索支持分类和简介
+* 其中一些更新由 Xwite, Horis提供
+
+**2023/03/21**
 
 * 修复书签界面删除条目后界面错乱bug
 * 一些带有搜索框的界面自动隐藏软键盘
@@ -19,6 +46,7 @@
 * 内置了两个直链上传配置,可以通过导入默认切换
 * 修复无法导入不在数组内的单个书源的本地文件
 * getVariable() 默认返回 ""
+* 修复bug
 * 其中一些更新由 Xwite, Horis提供
 
 **2023/03/14**
@@ -106,6 +134,6 @@
 * 书架分组支持独立排序
 * 适配 android 13 主题图标
 * 一些优化 by Horis
-
+----
 * [2022年日志](https://github.com/gedoor/legado/blob/record2022/app/src/main/assets/updateLog.md)
 * [2021年日志](https://github.com/gedoor/legado/blob/record2021/app/src/main/assets/updateLog.md)

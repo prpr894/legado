@@ -3,8 +3,8 @@ package io.legado.app.model.analyzeRule
 import android.text.TextUtils
 import androidx.annotation.Keep
 import com.script.SimpleBindings
-import io.legado.app.constant.AppConst.SCRIPT_ENGINE
 import io.legado.app.constant.AppPattern.JS_PATTERN
+import io.legado.app.constant.SCRIPT_ENGINE
 import io.legado.app.data.entities.*
 import io.legado.app.help.CacheManager
 import io.legado.app.help.JsExtensions
@@ -142,8 +142,19 @@ class AnalyzeRule(
         val content = mContent ?: this.content
         if (content != null && ruleList.isNotEmpty()) {
             result = content
-            if (content is NativeObject) {
-                result = content[ruleList[0].rule]?.toString()
+            if (result is NativeObject) {
+                val sourceRule = ruleList.first()
+                putRule(sourceRule.putMap)
+                sourceRule.makeUpRule(result)
+                result = if (sourceRule.getParamSize() > 1) {
+                    // get {{}}
+                    sourceRule.rule
+                } else {
+                    // 键值直接访问
+                    result[sourceRule.rule]?.toString()
+                }?.let {
+                    replaceRegex(it, sourceRule)
+                }
             } else {
                 for (sourceRule in ruleList) {
                     putRule(sourceRule.putMap)
@@ -219,7 +230,18 @@ class AnalyzeRule(
         if (content != null && ruleList.isNotEmpty()) {
             result = content
             if (result is NativeObject) {
-                result = result[ruleList[0].rule]?.toString()
+                val sourceRule = ruleList.first()
+                putRule(sourceRule.putMap)
+                sourceRule.makeUpRule(result)
+                result = if (sourceRule.getParamSize() > 1) {
+                    // get {{}}
+                    sourceRule.rule
+                } else {
+                    // 键值直接访问
+                    result[sourceRule.rule]?.toString()
+                }?.let {
+                    replaceRegex(it, sourceRule)
+                }
             } else {
                 for (sourceRule in ruleList) {
                     putRule(sourceRule.putMap)
@@ -612,6 +634,10 @@ class AnalyzeRule(
                     || ruleStr.startsWith("$.")
                     || ruleStr.startsWith("$[")
                     || ruleStr.startsWith("//")
+        }
+
+        fun getParamSize(): Int {
+            return ruleParam.size
         }
     }
 

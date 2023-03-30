@@ -25,6 +25,7 @@ import io.legado.app.help.config.AppConfig
 import io.legado.app.help.config.LocalConfig
 import io.legado.app.lib.dialogs.alert
 import io.legado.app.lib.dialogs.selector
+import io.legado.app.lib.theme.accentColor
 import io.legado.app.lib.theme.backgroundColor
 import io.legado.app.lib.theme.bottomBackground
 import io.legado.app.lib.theme.getPrimaryTextColor
@@ -111,9 +112,9 @@ class BookInfoActivity :
     @SuppressLint("PrivateResource")
     override fun onActivityCreated(savedInstanceState: Bundle?) {
         binding.titleBar.setBackgroundResource(R.color.transparent)
+        binding.refreshLayout?.setColorSchemeColors(accentColor)
         binding.arcView.setBgColor(backgroundColor)
         binding.llInfo.setBackgroundColor(backgroundColor)
-        binding.scrollView.setBackgroundColor(backgroundColor)
         binding.flAction.setBackgroundColor(bottomBackground)
         binding.tvShelf.setTextColor(getPrimaryTextColor(ColorUtils.isColorLight(bottomBackground)))
         binding.tvToc.text = getString(R.string.toc_s, getString(R.string.loading))
@@ -169,10 +170,7 @@ class BookInfoActivity :
                 }
             }
             R.id.menu_refresh -> {
-                upLoading(true)
-                viewModel.getBook()?.let {
-                    viewModel.refreshBook(it)
-                }
+                refreshBook()
             }
             R.id.menu_login -> viewModel.bookSource?.let {
                 startActivity<SourceLoginActivity> {
@@ -236,6 +234,13 @@ class BookInfoActivity :
         }
     }
 
+    private fun refreshBook() {
+        upLoading(true)
+        viewModel.getBook()?.let {
+            viewModel.refreshBook(it)
+        }
+    }
+
     private fun upLoadBook(
         book: Book,
         bookWebDav: RemoteBookWebDav? = AppWebDav.defaultBookWebDav
@@ -266,7 +271,6 @@ class BookInfoActivity :
         tvLasted.text = getString(R.string.lasted_show, book.latestChapterTitle)
         tvIntro.text = book.getDisplayIntro()
         llToc?.visible(!book.isWebFile)
-        editMenuItem?.isVisible = viewModel.inBookshelf
         upTvBookshelf()
         val kinds = book.getKindList()
         if (kinds.isEmpty()) {
@@ -318,6 +322,7 @@ class BookInfoActivity :
         } else {
             binding.tvShelf.text = getString(R.string.add_to_bookshelf)
         }
+        editMenuItem?.isVisible = viewModel.inBookshelf
     }
 
     private fun upGroup(groupId: Long) {
@@ -416,6 +421,10 @@ class BookInfoActivity :
                     putExtra("key", book.name)
                 }
             }
+        }
+        refreshLayout?.setOnRefreshListener {
+            refreshLayout.isRefreshing = false
+            refreshBook()
         }
     }
 

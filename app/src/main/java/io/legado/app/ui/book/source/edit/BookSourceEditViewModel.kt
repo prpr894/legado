@@ -12,6 +12,7 @@ import io.legado.app.help.config.SourceConfig
 import io.legado.app.help.http.CookieStore
 import io.legado.app.help.http.newCallStrResponse
 import io.legado.app.help.http.okHttpClient
+import io.legado.app.help.storage.ImportOldData
 import io.legado.app.utils.*
 import kotlinx.coroutines.Dispatchers
 
@@ -77,25 +78,35 @@ class BookSourceEditViewModel(application: Application) : BaseViewModel(applicat
         execute {
             importSource(text)
         }.onSuccess {
-            it?.let(finally) ?: context.toastOnUi("格式不对")
+            finally.invoke(it)
         }.onError {
             context.toastOnUi(it.localizedMessage ?: "Error")
+            it.printOnDebug()
         }
     }
 
-    suspend fun importSource(text: String): BookSource? {
+    suspend fun importSource(text: String): BookSource {
         return when {
             text.isAbsUrl() -> {
                 val text1 = okHttpClient.newCallStrResponse { url(text) }.body
-                text1?.let { importSource(text1) }
+                importSource(text1!!)
             }
             text.isJsonArray() -> {
-                val items: List<Map<String, Any>> = jsonPath.parse(text).read("$")
-                val jsonItem = jsonPath.parse(items[0])
-                BookSource.fromJson(jsonItem.jsonString()).getOrThrow()
+                if (text.contains("ruleSearchUrl") || text.contains("ruleFindUrl")) {
+                    val items: List<Map<String, Any>> = jsonPath.parse(text).read("$")
+                    val jsonItem = jsonPath.parse(items[0])
+                    ImportOldData.fromOldBookSource(jsonItem)
+                } else {
+                    GSON.fromJsonArray<BookSource>(text).getOrThrow()[0]
+                }
             }
             text.isJsonObject() -> {
-                BookSource.fromJson(text).getOrThrow()
+                if (text.contains("ruleSearchUrl") || text.contains("ruleFindUrl")) {
+                    val jsonItem = jsonPath.parse(text)
+                    ImportOldData.fromOldBookSource(jsonItem)
+                } else {
+                    GSON.fromJsonObject<BookSource>(text).getOrThrow()
+                }
             }
             else -> throw NoStackTraceException("格式不对")
         }

@@ -6,12 +6,10 @@ import androidx.room.*
 import io.legado.app.constant.AppPattern
 import io.legado.app.constant.BookSourceType
 import io.legado.app.data.entities.rule.*
-import io.legado.app.help.source.SourceAnalyzer
 import io.legado.app.utils.GSON
 import io.legado.app.utils.fromJsonObject
 import io.legado.app.utils.splitNotBlank
 import kotlinx.parcelize.Parcelize
-import java.io.InputStream
 
 @Suppress("unused")
 @Parcelize
@@ -219,21 +217,6 @@ data class BookSource(
     }
 
     private fun equal(a: String?, b: String?) = a == b || (a.isNullOrEmpty() && b.isNullOrEmpty())
-
-    companion object {
-
-        fun fromJson(json: String): Result<BookSource> {
-            return SourceAnalyzer.jsonToBookSource(json)
-        }
-
-        fun fromJsonArray(json: String): Result<MutableList<BookSource>> {
-            return SourceAnalyzer.jsonToBookSources(json)
-        }
-
-        fun fromJsonArray(inputStream: InputStream): Result<MutableList<BookSource>> {
-            return SourceAnalyzer.jsonToBookSources(inputStream)
-        }
-    }
 
     class Converters {
 

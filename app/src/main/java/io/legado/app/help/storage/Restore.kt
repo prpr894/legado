@@ -44,12 +44,13 @@ object Restore {
             } else {
                 ZipUtils.unZipToPath(File(uri.path!!), Backup.backupPath)
             }
+        }.onSuccess {
+            restoreDatabase()
+            restoreConfig()
+            LocalConfig.lastBackup = System.currentTimeMillis()
         }.onFailure {
-            AppLog.put("恢复复制文件出错\n${it.localizedMessage}", it)
+            AppLog.put("复制解压文件出错\n${it.localizedMessage}", it)
         }
-        restoreDatabase()
-        restoreConfig()
-        LocalConfig.lastBackup = System.currentTimeMillis()
     }
 
     suspend fun restoreDatabase(path: String = Backup.backupPath) {
@@ -62,7 +63,17 @@ object Restore {
                     .forEach { book ->
                         book.coverUrl = LocalBook.getCoverPath(book)
                     }
-                appDb.bookDao.insert(*it.toTypedArray())
+                val updateBooks = arrayListOf<Book>()
+                val newBooks = arrayListOf<Book>()
+                it.forEach { book ->
+                    if (appDb.bookDao.has(book.bookUrl) == true) {
+                        updateBooks.add(book)
+                    } else {
+                        newBooks.add(book)
+                    }
+                }
+                appDb.bookDao.update(*updateBooks.toTypedArray())
+                appDb.bookDao.insert(*newBooks.toTypedArray())
             }
             fileToListT<Bookmark>(path, "bookmark.json")?.let {
                 appDb.bookmarkDao.insert(*it.toTypedArray())
@@ -73,10 +84,11 @@ object Restore {
             fileToListT<BookSource>(path, "bookSource.json")?.let {
                 appDb.bookSourceDao.insert(*it.toTypedArray())
             } ?: run {
-                val bookSourceFile =
-                    FileUtils.createFileIfNotExist(path + File.separator + "bookSource.json")
-                val json = bookSourceFile.readText()
-                ImportOldData.importOldSource(json)
+                val bookSourceFile = File(path, "bookSource.json")
+                if (bookSourceFile.exists()) {
+                    val json = bookSourceFile.readText()
+                    ImportOldData.importOldSource(json)
+                }
             }
             fileToListT<RssSource>(path, "rssSources.json")?.let {
                 appDb.rssSourceDao.insert(*it.toTypedArray())

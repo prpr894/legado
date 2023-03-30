@@ -4,6 +4,7 @@ import com.google.gson.*
 import com.google.gson.internal.LinkedTreeMap
 import com.google.gson.reflect.TypeToken
 import com.google.gson.stream.JsonWriter
+import io.legado.app.data.entities.rule.*
 import java.io.InputStream
 import java.io.InputStreamReader
 import java.io.OutputStream
@@ -12,16 +13,27 @@ import java.lang.reflect.ParameterizedType
 import java.lang.reflect.Type
 import kotlin.math.ceil
 
-
-val GSON: Gson by lazy {
+val INITIAL_GSON by lazy {
     GsonBuilder()
         .registerTypeAdapter(
             object : TypeToken<Map<String?, Any?>?>() {}.type,
             MapDeserializerDoubleAsIntFix()
         )
         .registerTypeAdapter(Int::class.java, IntJsonDeserializer())
+        .registerTypeAdapter(String::class.java, StringJsonDeserializer())
         .disableHtmlEscaping()
         .setPrettyPrinting()
+        .create()
+}
+
+val GSON: Gson by lazy {
+    INITIAL_GSON.newBuilder()
+        .registerTypeAdapter(ExploreRule::class.java, ExploreRule.jsonDeserializer)
+        .registerTypeAdapter(SearchRule::class.java, SearchRule.jsonDeserializer)
+        .registerTypeAdapter(BookInfoRule::class.java, BookInfoRule.jsonDeserializer)
+        .registerTypeAdapter(TocRule::class.java, TocRule.jsonDeserializer)
+        .registerTypeAdapter(ContentRule::class.java, ContentRule.jsonDeserializer)
+        .registerTypeAdapter(ReviewRule::class.java, ReviewRule.jsonDeserializer)
         .create()
 }
 
@@ -91,6 +103,25 @@ class ParameterizedTypeImpl(private val clazz: Class<*>) : ParameterizedType {
 }
 
 /**
+ *
+ */
+class StringJsonDeserializer : JsonDeserializer<String?> {
+
+    override fun deserialize(
+        json: JsonElement,
+        typeOfT: Type,
+        context: JsonDeserializationContext?
+    ): String? {
+        return when {
+            json.isJsonPrimitive -> json.asString
+            json.isJsonNull -> null
+            else -> json.toString()
+        }
+    }
+
+}
+
+/**
  * int类型转化失败时跳过
  */
 class IntJsonDeserializer : JsonDeserializer<Int?> {
@@ -114,7 +145,6 @@ class IntJsonDeserializer : JsonDeserializer<Int?> {
     }
 
 }
-
 
 /**
  * 修复Int变为Double的问题

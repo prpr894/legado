@@ -28,12 +28,16 @@ updates:
       interval: "weekly"
     registries: "*"
   - package-ecosystem: gradle
-    directory: "book"
+    directory: "modules/book"
     schedule:
       interval: "weekly"
     registries: "*"
   # Maintain dependencies for GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: npm
+    directory: "modules/web"
     schedule:
       interval: "weekly"

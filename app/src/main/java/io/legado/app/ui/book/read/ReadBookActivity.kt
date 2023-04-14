@@ -61,7 +61,7 @@ import io.legado.app.ui.book.toc.TocActivityResult
 import io.legado.app.ui.book.toc.rule.TxtTocRuleDialog
 import io.legado.app.ui.browser.WebViewActivity
 import io.legado.app.ui.dict.DictDialog
-import io.legado.app.ui.document.HandleFileContract
+import io.legado.app.ui.file.HandleFileContract
 import io.legado.app.ui.login.SourceLoginActivity
 import io.legado.app.ui.replace.ReplaceRuleActivity
 import io.legado.app.ui.replace.edit.ReplaceEditActivity
@@ -1081,6 +1081,13 @@ class ReadBookActivity : BaseReadBookActivity(),
                                 putExtra("title", getString(R.string.chapter_pay))
                                 putExtra("url", it)
                                 IntentData.put(it, ReadBook.bookSource?.getHeaderMap(true))
+                            }
+                        } else if (it.isTrue()) {
+                            //购买成功后刷新目录
+                            ReadBook.book?.let {
+                                ReadBook.curTextChapter = null
+                                BookHelp.delContent(book, chapter)
+                                viewModel.loadChapterList(book)
                             }
                         }
                     }.onError {

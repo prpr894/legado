@@ -41,7 +41,7 @@ import io.legado.app.ui.book.read.ReadBookActivity
 import io.legado.app.ui.book.search.SearchActivity
 import io.legado.app.ui.book.source.edit.BookSourceEditActivity
 import io.legado.app.ui.book.toc.TocActivityResult
-import io.legado.app.ui.document.HandleFileContract
+import io.legado.app.ui.file.HandleFileContract
 import io.legado.app.ui.login.SourceLoginActivity
 import io.legado.app.ui.widget.dialog.PhotoDialog
 import io.legado.app.ui.widget.dialog.VariableDialog
@@ -66,6 +66,7 @@ class BookInfoActivity :
                     withContext(IO) {
                         book.durChapterIndex = it.first
                         book.durChapterPos = it.second
+                        chapterChanged = it.third
                         appDb.bookDao.update(book)
                     }
                     viewModel.chapterListData.value?.let { chapterList ->
@@ -103,6 +104,7 @@ class BookInfoActivity :
         }
     }
     private var tocChanged = false
+    private var chapterChanged = false
     private val waitDialog by lazy { WaitDialog(this) }
     private var editMenuItem: MenuItem? = null
 
@@ -620,6 +622,7 @@ class BookInfoActivity :
                     .putExtra("bookUrl", book.bookUrl)
                     .putExtra("inBookshelf", viewModel.inBookshelf)
                     .putExtra("tocChanged", tocChanged)
+                    .putExtra("chapterChanged", chapterChanged)
             )
         }
         tocChanged = false

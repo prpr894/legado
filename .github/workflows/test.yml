@@ -9,6 +9,7 @@ on:
       - '!**/assets/**'
       - '!**.md'
       - '!**/ISSUE_TEMPLATE/**'
+      - '!**/modules/web/**'
   pull_request:
   workflow_dispatch:
 
@@ -50,7 +51,7 @@ jobs:
     needs: prepare
     strategy:
       matrix:
-        product: [ app, google ]
+        product: [ app, google, lollipop ]
         type: [ release, releaseA ]
       fail-fast: false
     runs-on: ubuntu-latest

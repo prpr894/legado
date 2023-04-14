@@ -18,7 +18,7 @@ import io.legado.app.lib.dialogs.alert
 import io.legado.app.lib.theme.accentColor
 import io.legado.app.lib.theme.backgroundColor
 import io.legado.app.lib.theme.primaryColor
-import io.legado.app.ui.document.HandleFileContract
+import io.legado.app.ui.file.HandleFileContract
 import io.legado.app.ui.login.SourceLoginActivity
 import io.legado.app.ui.qrcode.QrCodeResult
 import io.legado.app.ui.rss.source.debug.RssSourceDebugActivity
@@ -204,6 +204,7 @@ class RssSourceEditActivity :
             add(EditEntity("header", rs.header, R.string.source_http_header))
             add(EditEntity("variableComment", rs.variableComment, R.string.variable_comment))
             add(EditEntity("concurrentRate", rs.concurrentRate, R.string.concurrent_rate))
+            add(EditEntity("jsLib", rs.jsLib, "jsLib"))
         }
         listEntities.clear()
         listEntities.apply {
@@ -263,6 +264,7 @@ class RssSourceEditActivity :
                 "variableComment" -> source.variableComment = it.value
                 "concurrentRate" -> source.concurrentRate = it.value
                 "sortUrl" -> source.sortUrl = it.value
+                "jsLib" -> source.jsLib = it.value
             }
         }
         listEntities.forEach {

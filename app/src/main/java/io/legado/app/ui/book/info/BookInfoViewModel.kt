@@ -53,7 +53,11 @@ class BookInfoViewModel(application: Application) : BaseViewModel(application) {
             }
             if (bookUrl.isNotBlank()) {
                 appDb.searchBookDao.getSearchBook(bookUrl)?.toBook()?.let {
-                    upBook(it)
+                    if (it.name == name && it.author == author) {
+                        upBook(it)
+                    } else {
+                        throw NoStackTraceException("未找到书籍，请删除此书源后重新搜索：${it.originName}")
+                    }
                     return@execute
                 }
             }
@@ -63,6 +67,7 @@ class BookInfoViewModel(application: Application) : BaseViewModel(application) {
             }
             throw NoStackTraceException("未找到书籍")
         }.onError {
+            AppLog.put(it.localizedMessage, it)
             context.toastOnUi(it.localizedMessage)
         }
     }
@@ -132,6 +137,7 @@ class BookInfoViewModel(application: Application) : BaseViewModel(application) {
                 is ObjectNotFoundException -> {
                     book.origin = BookType.localTag
                 }
+
                 else -> {
                     AppLog.put("下载远程书籍<${book.name}>失败", it)
                 }
@@ -166,7 +172,7 @@ class BookInfoViewModel(application: Application) : BaseViewModel(application) {
                                 loadChapter(it, scope)
                             }
                         }.onError {
-                            AppLog.put("获取数据信息失败\n${it.localizedMessage}", it)
+                            AppLog.put("获取书籍信息失败\n${it.localizedMessage}", it)
                             context.toastOnUi(R.string.error_get_book_info)
                         }
                 } ?: let {
@@ -305,7 +311,6 @@ class BookInfoViewModel(application: Application) : BaseViewModel(application) {
         }
     }
 
-    @Suppress("BlockingMethodInNonBlockingContext")
     fun importArchiveBook(
         archiveFileUri: Uri,
         archiveEntryName: String,

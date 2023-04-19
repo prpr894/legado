@@ -23,12 +23,7 @@ registries:
 
 updates:
   - package-ecosystem: gradle
-    directory: "app"
-    schedule:
-      interval: "weekly"
-    registries: "*"
-  - package-ecosystem: gradle
-    directory: "modules/book"
+    directory: "/"
     schedule:
       interval: "weekly"
     registries: "*"

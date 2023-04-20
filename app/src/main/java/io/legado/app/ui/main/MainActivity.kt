@@ -211,7 +211,7 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
      * 设置本地密码
      */
     private suspend fun setLocalPassword() = suspendCoroutine { block ->
-        if (LocalConfig.password.isNotBlank()) {
+        if (LocalConfig.password != null) {
             block.resume(null)
             return@suspendCoroutine
         }
@@ -228,7 +228,9 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
             okButton {
                 LocalConfig.password = editTextBinding.editView.text.toString()
             }
-            cancelButton()
+            cancelButton {
+                LocalConfig.password = ""
+            }
         }
     }
 

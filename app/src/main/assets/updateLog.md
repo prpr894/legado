@@ -13,8 +13,12 @@
 * 漫画源看书显示乱码，**阅读与其他软件的源并不通用**，请导入阅读的支持的漫画源！
 
 **2023/04/18**
+* 文件类书源文件后缀识别：自动识别失败后会读取下载链接UrlOption的type字段
+```
+https://www.example.com/file/ajzjxhxjncnc, {type: "txt"}
+```
+* 更新cronet: 112.0.5615.135
 
-* 更新cronet: 112.0.5615.100
 * 源添加jsLib字段
 
 > 注入JavaScript到RhinoJs引擎中，支持两种格式  
@@ -22,8 +26,9 @@
 > `{"example":"https://www.example.com/js/example.js", ...}` 自动复用已经下载的js文件
 
 * 导入书源菜单添加选择选中更新源,选中新增源
-* 优化web端
+* web端迁移到vue3, 部分功能未实现
 * 添加本地密码设置,备份涉及到的敏感信息用密码加密后再备份,如webdav密码等
+* 修复epub章节异常分割的bug
 * 其它一些优化
 * 其中一些更新由 Xwite, Horis提供
 

@@ -53,11 +53,7 @@ class BookInfoViewModel(application: Application) : BaseViewModel(application) {
             }
             if (bookUrl.isNotBlank()) {
                 appDb.searchBookDao.getSearchBook(bookUrl)?.toBook()?.let {
-                    if (it.name == name && it.author == author) {
-                        upBook(it)
-                    } else {
-                        throw NoStackTraceException("未找到书籍，请删除此书源后重新搜索：${it.originName}")
-                    }
+                    upBook(it)
                     return@execute
                 }
             }
@@ -245,9 +241,10 @@ class BookInfoViewModel(application: Application) : BaseViewModel(application) {
     ) {
         execute(scope) {
             webFiles.clear()
-            val fileName = "${book.name} 作者：${book.author}"
+            val fileNameExcludeExtension = if (book.author.isBlank()) book.name else "${book.name} 作者：${book.author}"
             book.downloadUrls!!.map {
-                val mFileName = UrlUtil.getFileName(AnalyzeUrl(it, source = bookSource)) ?: fileName
+                val analyzeUrl = AnalyzeUrl(it, source = bookSource)
+                val mFileName = UrlUtil.getFileName(analyzeUrl) ?: "${fileNameExcludeExtension}.${analyzeUrl.type}"
                 WebFile(it, mFileName)
             }
         }.onError {

@@ -61,6 +61,7 @@ object PreferKey {
     const val changeSourceCheckAuthor = "changeSourceCheckAuthor"
     const val changeSourceLoadToc = "changeSourceLoadToc"
     const val changeSourceLoadInfo = "changeSourceLoadInfo"
+    const val changeSourceLoadWordCount = "changeSourceLoadWordCount"
     const val chineseConverterType = "chineseConverterType"
     const val launcherIcon = "launcherIcon"
     const val textSelectAble = "selectText"
@@ -127,6 +128,7 @@ object PreferKey {
     const val showLastUpdateTime = "showLastUpdateTime"
     const val clearWebViewData = "clearWebViewData"
     const val onlyLatestBackup = "onlyLatestBackup"
+    const val brightnessVwPos = "brightnessVwPos"
 
     const val cPrimary = "colorPrimary"
     const val cAccent = "colorAccent"

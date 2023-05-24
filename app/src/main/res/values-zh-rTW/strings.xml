@@ -326,7 +326,7 @@
     <string name="book_info_edit">書籍訊息編輯</string>
     <string name="ps_default_read">預設打開書架</string>
     <string name="pt_default_read">自動跳轉最近閱讀</string>
-    <string name="use_to">取代範圍，選填書名或者書源url</string>
+    <string name="replace_scope">取代範圍，選填書名或者書源url</string>
     <string name="menu_action_group">分組</string>
     <string name="download_path">內容快取路徑</string>
     <string name="sys_file_picker">系統檔案選擇器</string>
@@ -876,6 +876,7 @@
     <string name="upload_url">上傳URL</string>
     <string name="download_url_rule">下载URL规则(downloadUrls)</string>
     <string name="sort_by_respondTime">反應時間排序</string>
+    <string name="respondTime">反應時間：%1$d ms</string>
     <string name="export_success">匯出成功</string>
     <string name="path">路徑</string>
     <string name="direct_link_upload_rule">直鏈上傳規則</string>
@@ -1102,4 +1103,9 @@
     <string name="set_local_password_summary">本地密码用来对备份的敏感信息加密和解密,如需在不同设备之间同步,本地密码需一致.</string>
     <string name="only_latest_backup_t">仅保留最新备份</string>
     <string name="only_latest_backup_s">本地备份仅保留最新备份文件</string>
+    <string name="webdav_application_authorization_error">webDav应用验证失败</string>
+    <string name="load_word_count">加載字數</string>
+    <string name="replace_exclude_scope">排除范围，选填书名或者书源 URL</string>
+    <string name="format_js_rule">格式化规则(formatJs)</string>
+    <string name="adjust_pos">调整位置</string>
 </resources>

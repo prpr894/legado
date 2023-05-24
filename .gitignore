@@ -14,3 +14,5 @@ node_modules/
 package-lock.json
 prpr894.jks
 pwd.properties
+.idea/*
+

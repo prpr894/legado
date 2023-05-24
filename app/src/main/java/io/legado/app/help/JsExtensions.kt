@@ -10,9 +10,11 @@ import com.github.liuyueyi.quick.transfer.ChineseUtils
 import io.legado.app.constant.AppConst
 import io.legado.app.constant.AppConst.dateFormat
 import io.legado.app.constant.AppLog
+import io.legado.app.constant.AppPattern
 import io.legado.app.data.entities.BaseSource
 import io.legado.app.exception.NoStackTraceException
 import io.legado.app.help.http.BackstageWebView
+import io.legado.app.help.http.CookieManager.cookieJarHeader
 import io.legado.app.help.http.CookieStore
 import io.legado.app.help.http.SSLHelper
 import io.legado.app.help.http.StrResponse
@@ -201,7 +203,7 @@ interface JsExtensions : JsEncodeUtils {
         val cachePath = CacheManager.get(key)
         return if (
             cachePath.isNullOrBlank() ||
-                !getFile(cachePath).exists()
+            !getFile(cachePath).exists()
         ) {
             val path = downloadFile(urlStr)
             log("首次下载 $urlStr >> $path")
@@ -278,58 +280,55 @@ interface JsExtensions : JsEncodeUtils {
     /**
      * js实现重定向拦截,网络访问get
      */
+    @Suppress("UnnecessaryVariable")
     fun get(urlStr: String, headers: Map<String, String>): Connection.Response {
+        val requestHeaders = if (getSource()?.enabledCookieJar == true) {
+            headers.toMutableMap().apply { put(cookieJarHeader, "1") }
+        } else headers
         val response = Jsoup.connect(urlStr)
             .sslSocketFactory(SSLHelper.unsafeSSLSocketFactory)
             .ignoreContentType(true)
             .followRedirects(false)
-            .headers(headers)
+            .headers(requestHeaders)
             .method(Connection.Method.GET)
             .execute()
-        val cookies = response.cookies()
-        CookieStore.mapToCookie(cookies)?.let {
-            val domain = NetworkUtils.getSubDomain(urlStr)
-            CacheManager.putMemory("${domain}_cookieJar", it)
-        }
         return response
     }
 
     /**
      * js实现重定向拦截,网络访问head,不返回Response Body更省流量
      */
+    @Suppress("UnnecessaryVariable")
     fun head(urlStr: String, headers: Map<String, String>): Connection.Response {
+        val requestHeaders = if (getSource()?.enabledCookieJar == true) {
+            headers.toMutableMap().apply { put(cookieJarHeader, "1") }
+        } else headers
         val response = Jsoup.connect(urlStr)
             .sslSocketFactory(SSLHelper.unsafeSSLSocketFactory)
             .ignoreContentType(true)
             .followRedirects(false)
-            .headers(headers)
+            .headers(requestHeaders)
             .method(Connection.Method.HEAD)
             .execute()
-        val cookies = response.cookies()
-        CookieStore.mapToCookie(cookies)?.let {
-            val domain = NetworkUtils.getSubDomain(urlStr)
-            CacheManager.putMemory("${domain}_cookieJar", it)
-        }
         return response
     }
 
     /**
      * 网络访问post
      */
+    @Suppress("UnnecessaryVariable")
     fun post(urlStr: String, body: String, headers: Map<String, String>): Connection.Response {
+        val requestHeaders = if (getSource()?.enabledCookieJar == true) {
+            headers.toMutableMap().apply { put(cookieJarHeader, "1") }
+        } else headers
         val response = Jsoup.connect(urlStr)
             .sslSocketFactory(SSLHelper.unsafeSSLSocketFactory)
             .ignoreContentType(true)
             .followRedirects(false)
             .requestBody(body)
-            .headers(headers)
+            .headers(requestHeaders)
             .method(Connection.Method.POST)
             .execute()
-        val cookies = response.cookies()
-        CookieStore.mapToCookie(cookies)?.let {
-            val domain = NetworkUtils.getSubDomain(urlStr)
-            CacheManager.putMemory("${domain}_cookieJar", it)
-        }
         return response
     }
 
@@ -516,6 +515,7 @@ interface JsExtensions : JsEncodeUtils {
     fun unzipFile(zipPath: String): String {
         return unArchiveFile(zipPath)
     }
+
     /**
      * js实现7Zip压缩文件解压
      * @param zipPath 相对路径
@@ -524,6 +524,7 @@ interface JsExtensions : JsEncodeUtils {
     fun un7zFile(zipPath: String): String {
         return unArchiveFile(zipPath)
     }
+
     /**
      * js实现Rar压缩文件解压
      * @param zipPath 相对路径
@@ -532,6 +533,7 @@ interface JsExtensions : JsEncodeUtils {
     fun unrarFile(zipPath: String): String {
         return unArchiveFile(zipPath)
     }
+
     /**
      * js实现压缩文件解压
      * @param zipPath 相对路径
@@ -735,6 +737,7 @@ interface JsExtensions : JsEncodeUtils {
                     }
                     return@runBlocking x
                 }
+
                 str.isContentScheme() -> Uri.parse(str).readBytes(appCtx)
                 str.startsWith("/storage") -> File(str).readBytes()
                 else -> base64DecodeToByteArray(str)
@@ -772,6 +775,19 @@ interface JsExtensions : JsEncodeUtils {
             }
         }
         return contentArray.joinToString("")
+    }
+
+
+    /**
+     * 章节数转数字
+     */
+    fun toNumChapter(s: String?): String? {
+        s ?: return null
+        val matcher = AppPattern.titleNumPattern.matcher(s)
+        if (matcher.find()) {
+            return "${matcher.group(1)}${StringUtils.stringToInt(matcher.group(2))}${matcher.group(3)}"
+        }
+        return s
     }
 
     /**

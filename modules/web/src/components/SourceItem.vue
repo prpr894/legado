@@ -4,7 +4,7 @@
     border
     :label="sourceUrl"
     :class="{
-      error: errorPushSources.includes(source),
+      error: isSaveError,
       edit: sourceUrl == currentSourceUrl,
     }"
   >
@@ -15,14 +15,20 @@
 
 <script setup>
 import { Edit } from "@element-plus/icons-vue";
+import { getSourceUniqueKey } from "@/utils/souce";
 
 const props = defineProps(["source"]);
-const sourceUrl = props.source.bookSourceUrl || props.source.sourceUrl;
 const store = useSourceStore();
-const { errorPushSources, currentSourceUrl } = storeToRefs(store);
+const { savedSourcesMap, currentSourceUrl } = storeToRefs(store);
+const sourceUrl = computed(() => getSourceUniqueKey(props.source));
 const handleSourceClick = (source) => {
   store.changeCurrentSource(source);
 };
+const isSaveError = computed(() => {
+  const map = savedSourcesMap.value;
+  if (map.size == 0) return false;
+  return !map.has(sourceUrl.value);
+});
 </script>
 <style lang="scss" scoped>
 :deep(.el-checkbox__label) {

@@ -1114,4 +1114,11 @@
     <string name="export_chapter_index">The section index that needs to be exported</string>
     <string name="shrink_database">压缩数据库</string>
     <string name="shrink_database_summary">减小数据库文件的大小</string>
+    <string name="is_compress">是否压缩</string>
+    <string name="sort_desc">反序</string>
+    <string name="test">测试</string>
+    <string name="show_wait_up_count">显示等待更新数量</string>
+    <string name="exit_app">退出软件</string>
+    <string name="add_all_to_bookshelf">全部加入书架</string>
+    <string name="page_to">页至</string>
 </resources>

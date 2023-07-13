@@ -1,4 +1,4 @@
-package io.legado.app.ui.book.read.page.provider
+package io.legado.app.model
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -15,7 +15,6 @@ import io.legado.app.help.book.isEpub
 import io.legado.app.help.book.isPdf
 import io.legado.app.help.config.AppConfig
 import io.legado.app.help.coroutine.Coroutine
-import io.legado.app.model.ReadBook
 import io.legado.app.model.localBook.EpubFile
 import io.legado.app.model.localBook.PdfFile
 import io.legado.app.utils.BitmapUtils
@@ -63,6 +62,14 @@ object ImageProvider {
             }
         }
 
+    }
+
+    fun put(key: String, bitmap: Bitmap) {
+        bitmapLruCache.put(key, bitmap)
+    }
+
+    fun get(key: String): Bitmap? {
+        return bitmapLruCache.get(key)
     }
 
     private fun getNotRecycled(key: String): Bitmap? {

@@ -1038,6 +1038,8 @@
     <string name="cover_decode_js">封面解密（coverDecodeJs）</string>
     <string name="prev_search_result">上一个搜索结果</string>
     <string name="next_search_result">下一个搜索结果</string>
+    <string name="specified_search_result">跳转</string>
+    <string name="specified_search_result_info">跳转到指定位置的搜索结果</string>
     <string name="net_no_group">網路未分組</string>
     <string name="local_no_group">本機未分組</string>
     <string name="parallel_export_book">多執行緒匯出TXT</string>

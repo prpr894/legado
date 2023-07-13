@@ -3,6 +3,7 @@ package io.legado.app.ui.book.import.local
 import android.annotation.SuppressLint
 import android.net.Uri
 import android.os.Bundle
+import android.text.InputType
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
@@ -34,9 +35,7 @@ import java.io.File
  * 导入本地书籍界面
  */
 class ImportBookActivity : BaseImportBookActivity<ImportBookViewModel>(),
-    PopupMenu.OnMenuItemClickListener,
-    ImportBookAdapter.CallBack,
-    SelectActionBar.CallBack {
+    PopupMenu.OnMenuItemClickListener, ImportBookAdapter.CallBack, SelectActionBar.CallBack {
 
     override val viewModel by viewModels<ImportBookViewModel>()
     private val adapter by lazy { ImportBookAdapter(this, this) }
@@ -141,7 +140,24 @@ class ImportBookActivity : BaseImportBookActivity<ImportBookViewModel>(),
         binding.imgBtnNext.setOnClickListener { nextSearchResult() }
         binding.tvSearchResultIndex.setOnClickListener { toastOnUi(binding.tvSearchResultIndex.text.trim()) }
         binding.tvSearchResultIndex.setOnLongClickListener { view ->
-            //TODO 添加跳转到指定搜索结果
+            alert(R.string.specified_search_result, R.string.specified_search_result_info) {
+                val editTextBinding = DialogEditTextBinding.inflate(layoutInflater).apply {
+                    editView.hint = "1 ~ ${searchResultIndex.size}"
+                    editView.inputType = InputType.TYPE_CLASS_NUMBER
+                }
+                customView {
+                    editTextBinding.root
+                }
+                onDismiss {
+
+                }
+                okButton {
+                    toSpecifiedSearchResult(editTextBinding.editView.text.toString().toInt() - 1)
+                }
+                cancelButton {
+
+                }
+            }
             true
         }
     }
@@ -181,6 +197,14 @@ class ImportBookActivity : BaseImportBookActivity<ImportBookViewModel>(),
         })
     }
 
+    private fun toSpecifiedSearchResult(j: Int) {
+        if (j >= 0 && searchResultIndex.size > j) {
+            val i = searchResultIndex[j]
+            searchSelectIndex = i
+            refreshSearchResult(j, i)
+        }
+    }
+
     private fun nextSearchResult() {
         val j = getIndexByValueInSearchResultIndex(searchSelectIndex) + 1
         if (searchResultIndex.size > j) {
@@ -188,7 +212,6 @@ class ImportBookActivity : BaseImportBookActivity<ImportBookViewModel>(),
             searchSelectIndex = i
             refreshSearchResult(j, i)
         }
-
     }
 
     private fun preSearchResult() {
@@ -268,10 +291,12 @@ class ImportBookActivity : BaseImportBookActivity<ImportBookViewModel>(),
                             selectFolder.launch()
                         }
                     }
+
                     AppConst.isPlayChannel -> {
                         binding.tvEmptyMsg.visible()
                         selectFolder.launch()
                     }
+
                     else -> initRootPath(rootUri.path!!)
                 }
             }
@@ -280,10 +305,8 @@ class ImportBookActivity : BaseImportBookActivity<ImportBookViewModel>(),
 
     private fun initRootPath(path: String) {
         binding.tvEmptyMsg.visible()
-        PermissionsCompat.Builder()
-            .addPermissions(*Permissions.Group.STORAGE)
-            .rationale(R.string.tip_perm_request_storage)
-            .onGranted {
+        PermissionsCompat.Builder().addPermissions(*Permissions.Group.STORAGE)
+            .rationale(R.string.tip_perm_request_storage).onGranted {
                 kotlin.runCatching {
                     viewModel.rootDoc = FileDoc.fromFile(File(path))
                     viewModel.subDocs.clear()
@@ -292,8 +315,7 @@ class ImportBookActivity : BaseImportBookActivity<ImportBookViewModel>(),
                     binding.tvEmptyMsg.visible()
                     selectFolder.launch()
                 }
-            }
-            .request()
+            }.request()
     }
 
     private fun upSort(sort: Int) {
@@ -385,8 +407,7 @@ class ImportBookActivity : BaseImportBookActivity<ImportBookViewModel>(),
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
         if (!goBackDir()) {
-            @Suppress("DEPRECATION")
-            super.onBackPressed()
+            @Suppress("DEPRECATION") super.onBackPressed()
         }
     }
 

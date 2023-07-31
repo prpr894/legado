@@ -10,7 +10,6 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import io.legado.app.R
 import io.legado.app.base.BaseFragment
-import io.legado.app.constant.AppConst
 import io.legado.app.constant.AppLog
 import io.legado.app.constant.EventBus
 import io.legado.app.constant.PreferKey
@@ -135,16 +134,8 @@ class BooksFragment() : BaseFragment(R.layout.fragment_books),
     private fun upRecyclerData() {
         booksFlowJob?.cancel()
         booksFlowJob = launch {
-            when (groupId) {
-                AppConst.bookGroupAllId -> appDb.bookDao.flowAll()
-                AppConst.bookGroupLocalId -> appDb.bookDao.flowLocal()
-                AppConst.bookGroupAudioId -> appDb.bookDao.flowAudio()
-                AppConst.bookGroupNetNoneId -> appDb.bookDao.flowNetNoGroup()
-                AppConst.bookGroupLocalNoneId -> appDb.bookDao.flowLocalNoGroup()
-                AppConst.bookGroupErrorId -> appDb.bookDao.flowUpdateError()
-                else -> appDb.bookDao.flowByGroup(groupId)
-                // 书籍排序
-            }.conflate().map { list ->
+            appDb.bookDao.flowByGroup(groupId).map { list ->
+                //排序
                 when (bookSort) {
                     1 -> list.sortedByDescending { it.latestChapterTime }
                     2 -> list.sortedWith { o1, o2 ->
@@ -154,11 +145,10 @@ class BooksFragment() : BaseFragment(R.layout.fragment_books),
                     3 -> list.sortedBy { it.order }
 
                     // 综合排序 issue #3192
-                    4 -> {
-                        list.sortedByDescending {
-                            if(it.latestChapterTime>it.durChapterTime) it.latestChapterTime else it.durChapterTime
-                        }
+                    4 -> list.sortedByDescending {
+                        max(it.latestChapterTime, it.durChapterTime)
                     }
+
                     else -> list.sortedByDescending { it.durChapterTime }
                 }
             }.flowOn(Dispatchers.Default).catch {

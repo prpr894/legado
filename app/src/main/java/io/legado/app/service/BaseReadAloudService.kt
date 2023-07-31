@@ -398,6 +398,9 @@ abstract class BaseReadAloudService : BaseService(),
                 .setContentIntent(
                     activityPendingIntent<ReadBookActivity>("activity")
                 )
+                .setVibrate(null)
+                .setSound(null)
+                .setLights(0, 0, 0)
             builder.setLargeIcon(cover)
             if (pause) {
                 builder.addAction(
@@ -429,7 +432,7 @@ abstract class BaseReadAloudService : BaseService(),
             builder.setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             builder
         }.onSuccess {
-            startForeground(AppConst.notificationIdRead, it.build())
+            startForeground(NotificationId.ReadAloudService, it.build())
         }.onError {
             AppLog.put("创建朗读通知出错,${it.localizedMessage}", it, true)
             //创建通知出错不结束服务就会崩溃,服务必须绑定通知

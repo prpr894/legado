@@ -2,6 +2,7 @@ package io.legado.app.service
 
 import android.app.PendingIntent
 import android.net.Uri
+import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
@@ -39,6 +40,7 @@ import java.io.File
 import java.io.InputStream
 import java.net.ConnectException
 import java.net.SocketTimeoutException
+import kotlin.coroutines.coroutineContext
 
 /**
  * 在线朗读
@@ -151,7 +153,10 @@ class HttpReadAloudService : BaseReadAloudService(),
         }
     }
 
-    private suspend fun getSpeakStream(httpTts: HttpTTS, speakText: String): InputStream? {
+    private suspend fun getSpeakStream(
+        httpTts: HttpTTS,
+        speakText: String
+    ): InputStream? {
         while (true) {
             try {
                 val analyzeUrl = AnalyzeUrl(
@@ -162,7 +167,7 @@ class HttpReadAloudService : BaseReadAloudService(),
                     headerMapF = httpTts.getHeaderMap(true)
                 )
                 var response = analyzeUrl.getResponseAwait()
-                ensureActive()
+                coroutineContext.ensureActive()
                 val checkJs = httpTts.loginCheckJs
                 if (checkJs?.isNotBlank() == true) {
                     response = analyzeUrl.evalJS(checkJs, response) as Response
@@ -177,7 +182,7 @@ class HttpReadAloudService : BaseReadAloudService(),
                         }
                     }
                 }
-                ensureActive()
+                coroutineContext.ensureActive()
                 response.body!!.byteStream().let { stream ->
                     downloadErrorNo = 0
                     return stream
@@ -294,7 +299,7 @@ class HttpReadAloudService : BaseReadAloudService(),
     private fun upPlayPos() {
         playIndexJob?.cancel()
         val textChapter = textChapter ?: return
-        playIndexJob = launch {
+        playIndexJob = lifecycleScope.launch {
             postEvent(EventBus.TTS_PROGRESS, readAloudNumber + 1)
             if (exoPlayer.duration <= 0) {
                 return@launch

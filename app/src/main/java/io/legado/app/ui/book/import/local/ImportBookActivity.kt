@@ -3,14 +3,11 @@ package io.legado.app.ui.book.import.local
 import android.annotation.SuppressLint
 import android.net.Uri
 import android.os.Bundle
-import android.text.InputType
 import android.view.Menu
 import android.view.MenuItem
-import android.view.View
 import androidx.activity.addCallback
 import androidx.activity.viewModels
 import androidx.appcompat.widget.PopupMenu
-import androidx.core.view.isVisible
 import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -39,15 +36,13 @@ import java.io.File
  * 导入本地书籍界面
  */
 class ImportBookActivity : BaseImportBookActivity<ImportBookViewModel>(),
-    PopupMenu.OnMenuItemClickListener, ImportBookAdapter.CallBack, SelectActionBar.CallBack {
+    PopupMenu.OnMenuItemClickListener,
+    ImportBookAdapter.CallBack,
+    SelectActionBar.CallBack {
 
     override val viewModel by viewModels<ImportBookViewModel>()
     private val adapter by lazy { ImportBookAdapter(this, this) }
     private var scanDocJob: Job? = null
-    private var menuItem: MenuItem? = null
-
-    private var searchSelectIndex = -1
-    private val searchResultIndex: MutableList<Int> = ArrayList()
 
     private val selectFolder = registerForActivityResult(HandleFileContract()) {
         it.uri?.let { uri ->
@@ -93,20 +88,8 @@ class ImportBookActivity : BaseImportBookActivity<ImportBookViewModel>(),
             R.id.menu_sort_name -> upSort(0)
             R.id.menu_sort_size -> upSort(1)
             R.id.menu_sort_time -> upSort(2)
-            R.id.menu_search -> {
-                menuItem = item
-                item.isVisible = false
-                searchClick()
-            }
         }
         return super.onCompatOptionsItemSelected(item)
-    }
-
-    private fun searchClick() {
-        searchView.visibility = View.VISIBLE
-        searchView.performClick()
-        binding.llSearchResultCtr.visibility = View.VISIBLE
-        binding.tvSearchResultIndex.text = resources.getString(R.string.empty)
     }
 
     override fun onMenuItemClick(item: MenuItem?): Boolean {
@@ -143,119 +126,12 @@ class ImportBookActivity : BaseImportBookActivity<ImportBookViewModel>(),
         binding.selectActionBar.inflateMenu(R.menu.import_book_sel)
         binding.selectActionBar.setOnMenuItemClickListener(this)
         binding.selectActionBar.setCallBack(this)
-        searchView.visibility = View.GONE
-        binding.llSearchResultCtr.visibility = View.GONE
-        binding.imgBtnPre.setOnClickListener { preSearchResult() }
-        binding.imgBtnNext.setOnClickListener { nextSearchResult() }
-        binding.tvSearchResultIndex.setOnClickListener { toastOnUi(binding.tvSearchResultIndex.text.trim()) }
-        binding.tvSearchResultIndex.setOnLongClickListener { view ->
-            alert(R.string.specified_search_result, R.string.specified_search_result_info) {
-                val editTextBinding = DialogEditTextBinding.inflate(layoutInflater).apply {
-                    editView.hint = "1 ~ ${searchResultIndex.size}"
-                    editView.inputType = InputType.TYPE_CLASS_NUMBER
-                }
-                customView {
-                    editTextBinding.root
-                }
-                onDismiss {
-
-                }
-                okButton {
-                    toSpecifiedSearchResult(editTextBinding.editView.text.toString().toInt() - 1)
-                }
-                cancelButton {
-
-                }
-            }
-            true
-        }
     }
 
     private fun initEvent() {
         binding.tvGoBack.setOnClickListener {
             goBackDir()
         }
-        searchView.setOnCloseListener {
-            searchView.isVisible = false
-            menuItem?.isVisible = true
-            binding.llSearchResultCtr.visibility = View.GONE
-            searchSelectIndex = -1
-            searchResultIndex.clear()
-            binding.tvSearchResultIndex.text = resources.getString(R.string.empty)
-            adapter.refreshSearchResult(-1)
-            false
-        }
-        searchView.setOnQueryTextListener(object :
-            androidx.appcompat.widget.SearchView.OnQueryTextListener {
-            override fun onQueryTextSubmit(query: String?): Boolean {
-                searchResultIndex.clear()
-                val bookFileNames = adapter.getItems()
-                for (i in bookFileNames.indices) {
-                    if (query != null && bookFileNames[i].name.contains(query)) {
-                        searchResultIndex.add(i)
-                    }
-                }
-                firstSearchResult()
-                searchView.clearFocus()
-                return true
-            }
-
-            override fun onQueryTextChange(newText: String?): Boolean {
-                return false
-            }
-        })
-    }
-
-    private fun toSpecifiedSearchResult(j: Int) {
-        if (j >= 0 && searchResultIndex.size > j) {
-            val i = searchResultIndex[j]
-            searchSelectIndex = i
-            refreshSearchResult(j, i)
-        }
-    }
-
-    private fun nextSearchResult() {
-        val j = getIndexByValueInSearchResultIndex(searchSelectIndex) + 1
-        if (searchResultIndex.size > j) {
-            val i = searchResultIndex[j]
-            searchSelectIndex = i
-            refreshSearchResult(j, i)
-        }
-    }
-
-    private fun preSearchResult() {
-        val j = getIndexByValueInSearchResultIndex(searchSelectIndex) - 1
-        if (searchResultIndex.size >= j && j >= 0) {
-            val i = searchResultIndex[j]
-            searchSelectIndex = i
-            refreshSearchResult(j, i)
-        }
-    }
-
-    private fun firstSearchResult() {
-        if (searchResultIndex.size > 0) {
-            val i = searchResultIndex[0]
-            searchSelectIndex = i
-            refreshSearchResult(0, i)
-        }
-    }
-
-    private fun getIndexByValueInSearchResultIndex(indexValue: Int): Int {
-        for (i in 0 until searchResultIndex.size) {
-            if (searchResultIndex[i] == indexValue) {
-                return i
-            }
-        }
-        return -1
-    }
-
-    private fun refreshSearchResult(j: Int, i: Int) {
-        val size = searchResultIndex.size
-        val jI = j + 1
-        val indexToShow = "$jI/$size"
-        binding.tvSearchResultIndex.text = indexToShow
-        binding.recyclerView.scrollToPosition(i)
-        adapter.refreshSearchResult(i)
     }
 
     private fun initData() {
@@ -300,12 +176,10 @@ class ImportBookActivity : BaseImportBookActivity<ImportBookViewModel>(),
                             selectFolder.launch()
                         }
                     }
-
                     AppConst.isPlayChannel -> {
                         binding.tvEmptyMsg.visible()
                         selectFolder.launch()
                     }
-
                     else -> initRootPath(rootUri.path!!)
                 }
             }
@@ -314,8 +188,10 @@ class ImportBookActivity : BaseImportBookActivity<ImportBookViewModel>(),
 
     private fun initRootPath(path: String) {
         binding.tvEmptyMsg.visible()
-        PermissionsCompat.Builder().addPermissions(*Permissions.Group.STORAGE)
-            .rationale(R.string.tip_perm_request_storage).onGranted {
+        PermissionsCompat.Builder()
+            .addPermissions(*Permissions.Group.STORAGE)
+            .rationale(R.string.tip_perm_request_storage)
+            .onGranted {
                 kotlin.runCatching {
                     viewModel.rootDoc = FileDoc.fromFile(File(path))
                     viewModel.subDocs.clear()
@@ -324,7 +200,8 @@ class ImportBookActivity : BaseImportBookActivity<ImportBookViewModel>(),
                     binding.tvEmptyMsg.visible()
                     selectFolder.launch()
                 }
-            }.request()
+            }
+            .request()
     }
 
     private fun upSort(sort: Int) {

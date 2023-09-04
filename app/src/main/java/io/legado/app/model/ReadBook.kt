@@ -177,6 +177,20 @@ object ReadBook : CoroutineScope by MainScope() {
         return hasNextPage
     }
 
+    fun moveToPrevPage(): Boolean {
+        var hasPrevPage = false
+        curTextChapter?.let {
+            val prevPagePos = it.getPrevPageLength(durChapterPos)
+            if (prevPagePos >= 0) {
+                hasPrevPage = true
+                durChapterPos = prevPagePos
+                callBack?.upContent()
+                saveRead()
+            }
+        }
+        return hasPrevPage
+    }
+
     fun moveToNextChapter(upContent: Boolean): Boolean {
         if (durChapterIndex < chapterSize - 1) {
             durChapterPos = 0
@@ -189,14 +203,13 @@ object ReadBook : CoroutineScope by MainScope() {
                 loadContent(durChapterIndex, upContent, resetPageOffset = false, pageChanged = true)
             } else if (upContent) {
                 AppLog.putDebug("moveToNextChapter-章节已加载,刷新视图")
-                callBack?.upContent {
-                    callBack?.upMenuView()
-                    AppLog.putDebug("moveToNextChapter-curPageChanged()")
-                    curPageChanged()
-                }
+                callBack?.upContent()
             }
             loadContent(durChapterIndex.plus(1), upContent, false)
             saveRead()
+            callBack?.upMenuView()
+            AppLog.putDebug("moveToNextChapter-curPageChanged()")
+            curPageChanged()
             return true
         } else {
             AppLog.putDebug("跳转下一章失败,没有下一章")
@@ -217,13 +230,12 @@ object ReadBook : CoroutineScope by MainScope() {
             if (curTextChapter == null) {
                 loadContent(durChapterIndex, upContent, resetPageOffset = false, pageChanged = true)
             } else if (upContent) {
-                callBack?.upContent {
-                    callBack?.upMenuView()
-                    curPageChanged()
-                }
+                callBack?.upContent()
             }
             loadContent(durChapterIndex.minus(1), upContent, false)
             saveRead()
+            callBack?.upMenuView()
+            curPageChanged()
             return true
         } else {
             return false
@@ -251,7 +263,12 @@ object ReadBook : CoroutineScope by MainScope() {
     private fun curPageChanged() {
         callBack?.pageChanged()
         if (BaseReadAloudService.isRun) {
-            readAloud(!BaseReadAloudService.pause)
+            val scrollPageAnim = pageAnim() == 3
+            if (scrollPageAnim) {
+                ReadAloud.pause(appCtx)
+            } else {
+                readAloud(!BaseReadAloudService.pause)
+            }
         }
         upReadTime()
         preDownload()
@@ -260,9 +277,9 @@ object ReadBook : CoroutineScope by MainScope() {
     /**
      * 朗读
      */
-    fun readAloud(play: Boolean = true) {
+    fun readAloud(play: Boolean = true, startPos: Int = 0) {
         book?.let {
-            ReadAloud.play(appCtx, play)
+            ReadAloud.play(appCtx, play, startPos = startPos)
         }
     }
 
@@ -424,38 +441,40 @@ object ReadBook : CoroutineScope by MainScope() {
         pageChanged: Boolean,
         success: (() -> Unit)? = null
     ) {
+        removeLoading(chapter.index)
+        if (chapter.index !in durChapterIndex - 1..durChapterIndex + 1) {
+            return
+        }
         Coroutine.async {
-            removeLoading(chapter.index)
-            if (chapter.index in durChapterIndex - 1..durChapterIndex + 1) {
-                val contentProcessor = ContentProcessor.get(book.name, book.origin)
-                val displayTitle = chapter.getDisplayTitle(
-                    contentProcessor.getTitleReplaceRules(),
-                    book.getUseReplaceRule()
-                )
-                val contents = contentProcessor
-                    .getContent(book, chapter, content, includeTitle = false)
-                val textChapter = ChapterProvider
-                    .getTextChapter(book, chapter, displayTitle, contents, chapterSize)
-                when (val offset = chapter.index - durChapterIndex) {
-                    0 -> {
-                        curTextChapter = textChapter
-                        if (upContent) callBack?.upContent(offset, resetPageOffset)
-                        callBack?.upMenuView()
-                        if (pageChanged) curPageChanged()
-                        callBack?.contentLoadFinish()
-                    }
+            val contentProcessor = ContentProcessor.get(book.name, book.origin)
+            val displayTitle = chapter.getDisplayTitle(
+                contentProcessor.getTitleReplaceRules(),
+                book.getUseReplaceRule()
+            )
+            val contents = contentProcessor
+                .getContent(book, chapter, content, includeTitle = false)
+            val textChapter = ChapterProvider
+                .getTextChapter(book, chapter, displayTitle, contents, chapterSize)
+            when (val offset = chapter.index - durChapterIndex) {
+                0 -> {
+                    curTextChapter = textChapter
+                    if (upContent) callBack?.upContent(offset, resetPageOffset)
+                    callBack?.upMenuView()
+                    if (pageChanged) curPageChanged()
+                    callBack?.contentLoadFinish()
+                }
 
-                    -1 -> {
-                        prevTextChapter = textChapter
-                        if (upContent) callBack?.upContent(offset, resetPageOffset)
-                    }
+                -1 -> {
+                    prevTextChapter = textChapter
+                    if (upContent) callBack?.upContent(offset, resetPageOffset)
+                }
 
-                    1 -> {
-                        nextTextChapter = textChapter
-                        if (upContent) callBack?.upContent(offset, resetPageOffset)
-                    }
+                1 -> {
+                    nextTextChapter = textChapter
+                    if (upContent) callBack?.upContent(offset, resetPageOffset)
                 }
             }
+            Unit
         }.onError {
             AppLog.put("ChapterProvider ERROR", it)
             appCtx.toastOnUi("ChapterProvider ERROR:\n${it.stackTraceStr}")

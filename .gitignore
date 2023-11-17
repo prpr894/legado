@@ -1,6 +1,6 @@
 *.iml
 .gradle
-/local.properties
+local.properties
 .DS_Store
 /build
 /captures
@@ -14,5 +14,5 @@ node_modules/
 package-lock.json
 prpr894.jks
 pwd.properties
-.idea/*
+.idea/
 

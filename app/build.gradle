@@ -10,11 +10,12 @@ apply from: 'download.gradle'
 
 def getPropertiesFromFile() {
     //可以使用绝对路径，也可以使用相对路径
-    def versionFile = file('../pwd.properties')
+    def versionFile = file('../keystore/pwd.properties')
     Properties properties = new Properties()
     if (versionFile.canRead()) {
         properties.load(new FileInputStream(versionFile))
     } else {
+        properties['storeFile'] = "null! Could not find pwd.properties!"
         properties['storePassword'] = "null! Could not find pwd.properties!"
         properties['keyAlias'] = "null! Could not find pwd.properties!"
         properties['keyPassword'] = "null! Could not find pwd.properties!"
@@ -50,13 +51,13 @@ android {
 //keyPassword = xxx
     signingConfigs {
         debug {
-            storeFile file('../prpr894.jks')
+            storeFile file(pwdProperties['storeFile'])
             storePassword pwdProperties['storePassword']
             keyAlias pwdProperties['keyAlias']
             keyPassword pwdProperties['keyPassword']
         }
         release {
-            storeFile file('../prpr894.jks')
+            storeFile file(pwdProperties['storeFile'])
             storePassword pwdProperties['storePassword']
             keyAlias pwdProperties['keyAlias']
             keyPassword pwdProperties['keyPassword']

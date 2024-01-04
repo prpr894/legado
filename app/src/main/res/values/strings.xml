@@ -1124,8 +1124,6 @@
     <string name="test">Test</string>
     <string name="show_wait_up_count">Display the number of pending updates</string>
     <string name="exit_app">Exit</string>
-    <string name="add_all_to_bookshelf">全部加入书架</string>
-    <string name="page_to">页至</string>
     <string name="result_analyzed">Analyzed</string>
     <string name="bookshelf_px_4">Comprehensive</string>
     <string name="effective_replaces">Effective replacement</string>
@@ -1145,4 +1143,6 @@
     <string name="del_h_tag">Delete h tag</string>
     <string name="adjust_chapter_page">Adjust of chapter page</string>
     <string name="adjust_chapter_index">Adjust of chapter index</string>
+    <string name="clear_webview_data_success">Cleared successfully, automatically restarts the application after 3 seconds</string>
+    <string name="key_page_on_long_press">Press and hold the key to turn the page</string>
 </resources>

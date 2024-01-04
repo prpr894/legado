@@ -76,13 +76,13 @@ object LocalBook {
             }
             val file = File(uri.path!!)
             if (file.exists()) {
-                return@runCatching File(uri.path!!).lastModified()
+                return@runCatching file.lastModified()
             }
             throw FileNotFoundException("${uri.path} 文件不存在")
         }
     }
 
-    @Throws(Exception::class)
+    @Throws(TocEmptyException::class)
     fun getChapterList(book: Book): ArrayList<BookChapter> {
         val chapters = when {
             book.isEpub -> {

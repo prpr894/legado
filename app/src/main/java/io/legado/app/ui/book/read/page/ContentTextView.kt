@@ -536,6 +536,9 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
     }
 
     private fun upSelectChars() {
+        if (!selectStart.isSelected() || !selectEnd.isSelected()) {
+            return
+        }
         val last = if (callBack.isScroll) 2 else 0
         val textPos = TextPos(0, 0, 0)
         for (relativePos in 0..last) {
@@ -655,7 +658,7 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
 
     fun createBookmark(): Bookmark? {
         val page = relativePage(selectStart.relativePagePos)
-        page.getTextChapter()?.let { chapter ->
+        page.getTextChapter().let { chapter ->
             ReadBook.book?.let { book ->
                 return book.createBookMark().apply {
                     chapterIndex = page.chapterIndex

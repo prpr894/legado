@@ -288,6 +288,10 @@ class PageView(context: Context) : FrameLayout(context) {
         binding.contentTextView.setContent(textPage)
     }
 
+    fun invalidateContentView() {
+        binding.contentTextView.invalidate()
+    }
+
     /**
      * 设置无障碍文本
      */
@@ -309,11 +313,18 @@ class PageView(context: Context) : FrameLayout(context) {
     fun setProgress(textPage: TextPage) = textPage.apply {
         tvBookName?.setTextIfNotEqual(ReadBook.book?.name)
         tvTitle?.setTextIfNotEqual(textPage.title)
-        tvPage?.setTextIfNotEqual("${index.plus(1)}/$pageSize")
         val readProgress = readProgress
         tvTotalProgress?.setTextIfNotEqual(readProgress)
         tvTotalProgress1?.setTextIfNotEqual("${chapterIndex.plus(1)}/${chapterSize}")
-        tvPageAndTotal?.setTextIfNotEqual("${index.plus(1)}/$pageSize  $readProgress")
+        if (textChapter.isCompleted) {
+            tvPageAndTotal?.setTextIfNotEqual("${index.plus(1)}/$pageSize  $readProgress")
+            tvPage?.setTextIfNotEqual("${index.plus(1)}/$pageSize")
+        } else {
+            val pageSizeInt = pageSize
+            val pageSize = if (pageSizeInt <= 0) "-" else "~$pageSizeInt"
+            tvPageAndTotal?.setTextIfNotEqual("${index.plus(1)}/$pageSize  $readProgress")
+            tvPage?.setTextIfNotEqual("${index.plus(1)}/$pageSize")
+        }
     }
 
     fun setAutoPager(autoPager: AutoPager?) {

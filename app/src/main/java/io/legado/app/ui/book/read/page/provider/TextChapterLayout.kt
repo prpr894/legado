@@ -26,6 +26,7 @@ import io.legado.app.utils.fastSum
 import io.legado.app.utils.splitNotBlank
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import java.util.LinkedList
@@ -78,6 +79,8 @@ class TextChapterLayout(
 
     var exception: Throwable? = null
 
+    var channel = Channel<TextPage>(Int.MAX_VALUE)
+
     init {
         job = Coroutine.async(scope) {
             launch {
@@ -124,6 +127,7 @@ class TextChapterLayout(
         textPage.isCompleted = true
         textPage.textChapter = textChapter
         textPage.upLinesPosition()
+        channel.trySend(textPage)
         try {
             listener?.onLayoutPageCompleted(textPages.lastIndex, textPage)
         } catch (e: Exception) {
@@ -133,6 +137,7 @@ class TextChapterLayout(
     }
 
     private fun onCompleted() {
+        channel.close()
         try {
             listener?.onLayoutCompleted()
         } catch (e: Exception) {
@@ -144,6 +149,7 @@ class TextChapterLayout(
     }
 
     private fun onException(e: Throwable) {
+        channel.close(e)
         if (e is CancellationException) {
             listener = null
             return
@@ -399,8 +405,11 @@ class TextChapterLayout(
         srcList: LinkedList<String>? = null
     ): Pair<Int, Float> {
         var absStartX = x
+        val widthsArray = FloatArray(text.length)
+        textPaint.getTextWidths(text, widthsArray)
         val layout = if (ReadBookConfig.useZhLayout) {
-            ZhLayout(text, textPaint, visibleWidth)
+            val (words, widths) = measureTextSplit(text, widthsArray)
+            ZhLayout(text, textPaint, visibleWidth, words, widths)
         } else {
             StaticLayout(text, textPaint, visibleWidth, Layout.Alignment.ALIGN_NORMAL, 0f, 0f, true)
         }
@@ -461,12 +470,12 @@ class TextChapterLayout(
             val lineStart = layout.getLineStart(lineIndex)
             val lineEnd = layout.getLineEnd(lineIndex)
             val lineText = text.substring(lineStart, lineEnd)
-            val (words, widths) = measureTextSplit(lineText, textPaint)
+            val (words, widths) = measureTextSplit(lineText, widthsArray, lineStart)
             val desiredWidth = widths.fastSum()
+            textLine.text = lineText
             when {
                 lineIndex == 0 && layout.lineCount > 1 && !isTitle -> {
-                    //第一行 非标题
-                    textLine.text = lineText
+                    //多行的第一行 非标题
                     addCharsToLineFirst(
                         book, absStartX, textLine, words, textPaint,
                         desiredWidth, widths, srcList
@@ -474,8 +483,7 @@ class TextChapterLayout(
                 }
 
                 lineIndex == layout.lineCount - 1 -> {
-                    //最后一行
-                    textLine.text = lineText
+                    //最后一行、单行
                     //标题x轴居中
                     val startX = if (
                         isTitle &&
@@ -504,7 +512,6 @@ class TextChapterLayout(
                         )
                     } else {
                         //中间行
-                        textLine.text = lineText
                         addCharsToLineMiddle(
                             book, absStartX, textLine, words, textPaint,
                             desiredWidth, 0f, widths, srcList
@@ -622,7 +629,7 @@ class TextChapterLayout(
         val spaceSize = words.count { it == " " }
         textLine.startX = absStartX + startX
         if (spaceSize > 1) {
-            val d = residualWidth / (spaceSize - 1)
+            val d = residualWidth / spaceSize
             textLine.wordSpacing = d
             var x = startX
             for (index in words.indices) {
@@ -735,14 +742,25 @@ class TextChapterLayout(
      * 超出边界处理
      */
     private fun exceed(absStartX: Int, textLine: TextLine, words: List<String>) {
+        var size = words.size
+        if (size < 2) return
         val visibleEnd = absStartX + visibleWidth
-        val endX = textLine.columns.lastOrNull()?.end?.roundToInt() ?: return
+        val columns = textLine.columns
+        var offset = 0
+        val endColumn = if (words.last() == " ") {
+            size--
+            offset++
+            columns[columns.lastIndex - 1]
+        } else {
+            columns.last()
+        }
+        val endX = endColumn.end.roundToInt()
         if (endX > visibleEnd) {
             textLine.exceed = true
-            val cc = (endX - visibleEnd) / words.size
-            for (i in 0..words.lastIndex) {
-                textLine.getColumnReverseAt(i).let {
-                    val py = cc * (words.size - i)
+            val cc = (endX - visibleEnd) / size
+            for (i in 0..<size) {
+                textLine.getColumnReverseAt(i, offset).let {
+                    val py = cc * (size - i)
                     it.start -= py
                     it.end -= py
                 }
@@ -752,22 +770,24 @@ class TextChapterLayout(
 
     private fun measureTextSplit(
         text: String,
-        paint: TextPaint
+        widthsArray: FloatArray,
+        start: Int = 0
     ): Pair<ArrayList<String>, ArrayList<Float>> {
         val length = text.length
-        val widthsArray = FloatArray(length)
-        paint.getTextWidths(text, widthsArray)
-        val clusterCount = widthsArray.count { it > 0f }
+        var clusterCount = 0
+        for (i in start..<start + length) {
+            if (widthsArray[i] > 0) clusterCount++
+        }
         val widths = ArrayList<Float>(clusterCount)
         val stringList = ArrayList<String>(clusterCount)
-        var i = 0
-        while (i < length) {
+        var i = start
+        while (i < start + length) {
             val clusterBaseIndex = i++
             widths.add(widthsArray[clusterBaseIndex])
             while (i < length && widthsArray[i] == 0f) {
                 i++
             }
-            stringList.add(text.substring(clusterBaseIndex, i))
+            stringList.add(text.substring(clusterBaseIndex - start, i - start))
         }
         return stringList to widths
     }

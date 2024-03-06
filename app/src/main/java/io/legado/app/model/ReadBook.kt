@@ -20,7 +20,6 @@ import io.legado.app.model.localBook.TextFile
 import io.legado.app.model.webBook.WebBook
 import io.legado.app.service.BaseReadAloudService
 import io.legado.app.ui.book.read.page.entities.TextChapter
-import io.legado.app.ui.book.read.page.entities.TextPage
 import io.legado.app.ui.book.read.page.provider.ChapterProvider
 import io.legado.app.ui.book.read.page.provider.LayoutProgressListener
 import io.legado.app.utils.stackTraceStr
@@ -31,6 +30,8 @@ import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import splitties.init.appCtx
 import kotlin.math.max
@@ -288,19 +289,22 @@ object ReadBook : CoroutineScope by MainScope() {
     }
 
     fun setPageIndex(index: Int) {
-        val textChapter = curTextChapter
-        if (textChapter != null) {
-            val pageIndex = durPageIndex
-            if (index > pageIndex) {
-                textChapter.getPage(index - 2)?.recycleRecorders()
-            }
-            if (index < pageIndex) {
-                textChapter.getPage(index + 3)?.recycleRecorders()
-            }
-        }
+        recycleRecorders(durPageIndex, index)
         durChapterPos = curTextChapter?.getReadLength(index) ?: index
         saveRead(true)
         curPageChanged(true)
+    }
+
+    fun recycleRecorders(beforeIndex: Int, afterIndex: Int) {
+        executor.execute {
+            val textChapter = curTextChapter ?: return@execute
+            if (afterIndex > beforeIndex) {
+                textChapter.getPage(afterIndex - 2)?.recycleRecorders()
+            }
+            if (afterIndex < beforeIndex) {
+                textChapter.getPage(afterIndex + 3)?.recycleRecorders()
+            }
+        }
     }
 
     fun openChapter(index: Int, durChapterPos: Int = 0, success: (() -> Unit)? = null) {
@@ -337,7 +341,8 @@ object ReadBook : CoroutineScope by MainScope() {
      * 朗读
      */
     fun readAloud(play: Boolean = true, startPos: Int = 0) {
-        book?.let {
+        book ?: return
+        if (isLayoutAvailable) {
             ReadAloud.play(appCtx, play, startPos = startPos)
         }
     }
@@ -527,89 +532,62 @@ object ReadBook : CoroutineScope by MainScope() {
             )
             val contents = contentProcessor
                 .getContent(book, chapter, content, includeTitle = false)
-            val textChapter =
-                ChapterProvider.getTextChapterAsync(chapter, displayTitle, contents, chapterSize)
+            val textChapter = ChapterProvider.getTextChapterAsync(
+                this@ReadBook, book, chapter, displayTitle, contents, chapterSize
+            )
             when (val offset = chapter.index - durChapterIndex) {
                 0 -> {
                     curTextChapter?.cancelLayout()
                     curTextChapter = textChapter
                     callBack?.upMenuView()
-                    textChapter.setProgressListener(object : LayoutProgressListener {
-                        var available = false
-
-                        override fun onLayoutPageCompleted(index: Int, page: TextPage) {
-                            if (!available && page.containPos(durChapterPos)) {
-                                if (upContent) {
-                                    callBack?.upContent(offset, resetPageOffset)
-                                }
-                                curPageChanged()
-                                callBack?.contentLoadFinish()
-                                available = true
+                    var available = false
+                    for (page in textChapter.layoutChannel) {
+                        val index = page.index
+                        if (!available && page.containPos(durChapterPos)) {
+                            if (upContent) {
+                                callBack?.upContent(offset, resetPageOffset)
                             }
-                            if (upContent && isScroll) {
-                                if (max(index - 3, 0) < durPageIndex) {
-                                    callBack?.upContent(offset, resetPageOffset)
-                                }
+                            curPageChanged()
+                            callBack?.contentLoadFinish()
+                            available = true
+                        }
+                        if (upContent && isScroll) {
+                            if (max(index - 3, 0) < durPageIndex) {
+                                callBack?.upContent(offset, false)
                             }
-                            callBack?.onLayoutPageCompleted(index, page)
                         }
-
-                        override fun onLayoutCompleted() {
-                            if (upContent) callBack?.upContent(offset, resetPageOffset)
-                            success?.invoke()
-                            callBack?.onLayoutCompleted()
-                        }
-
-                        override fun onLayoutException(e: Throwable) {
-                            AppLog.put("ChapterProvider ERROR", e)
-                            appCtx.toastOnUi("ChapterProvider ERROR:\n${e.stackTraceStr}")
-                            callBack?.onLayoutException(e)
-                        }
-                    })
+                        callBack?.onLayoutPageCompleted(index, page)
+                    }
+                    if (upContent) callBack?.upContent(offset, !available && resetPageOffset)
+                    if (!available) {
+                        curPageChanged()
+                        callBack?.contentLoadFinish()
+                    }
                 }
 
                 -1 -> {
                     prevTextChapter?.cancelLayout()
                     prevTextChapter = textChapter
-                    textChapter.setProgressListener(object : LayoutProgressListener {
-                        override fun onLayoutCompleted() {
-                            if (upContent) callBack?.upContent(offset, resetPageOffset)
-                            success?.invoke()
-                        }
-
-                        override fun onLayoutException(e: Throwable) {
-                            AppLog.put("ChapterProvider ERROR", e)
-                            appCtx.toastOnUi("ChapterProvider ERROR:\n${e.stackTraceStr}")
-                        }
-                    })
+                    textChapter.layoutChannel.receiveAsFlow().collect()
+                    if (upContent) callBack?.upContent(offset, resetPageOffset)
                 }
 
                 1 -> {
                     nextTextChapter?.cancelLayout()
                     nextTextChapter = textChapter
-                    textChapter.setProgressListener(object : LayoutProgressListener {
-                        override fun onLayoutPageCompleted(index: Int, page: TextPage) {
-                            if (index > 1) {
-                                return
-                            }
-                            if (upContent) callBack?.upContent(offset, resetPageOffset)
+                    for (page in textChapter.layoutChannel) {
+                        if (page.index > 1) {
+                            continue
                         }
-
-                        override fun onLayoutCompleted() {
-                            success?.invoke()
-                        }
-
-                        override fun onLayoutException(e: Throwable) {
-                            AppLog.put("ChapterProvider ERROR", e)
-                            appCtx.toastOnUi("ChapterProvider ERROR:\n${e.stackTraceStr}")
-                        }
-                    })
+                        if (upContent) callBack?.upContent(offset, resetPageOffset)
+                    }
                 }
             }
-            textChapter.createLayout(this@ReadBook, book, contents)
         }.onError {
             AppLog.put("ChapterProvider ERROR", it)
             appCtx.toastOnUi("ChapterProvider ERROR:\n${it.stackTraceStr}")
+        }.onSuccess {
+            success?.invoke()
         }
     }
 

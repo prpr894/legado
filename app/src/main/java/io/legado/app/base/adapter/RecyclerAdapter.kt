@@ -11,8 +11,8 @@ import androidx.recyclerview.widget.RecyclerView
 import androidx.viewbinding.ViewBinding
 import io.legado.app.help.coroutine.Coroutine
 import io.legado.app.utils.buildMainHandler
+import io.legado.app.utils.withTimeoutOrNullAsync
 import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.withTimeoutOrNull
 import splitties.views.onLongClick
 import java.util.Collections
 
@@ -114,6 +114,7 @@ abstract class RecyclerAdapter<ITEM, VB : ViewBinding>(protected val context: Co
     ) {
         kotlin.runCatching {
             val oldItems = this.items.toList()
+            val itemsSize = items?.size ?: 0
             val callback = object : DiffUtil.Callback() {
                 override fun getOldListSize(): Int {
                     return itemCount
@@ -152,10 +153,10 @@ abstract class RecyclerAdapter<ITEM, VB : ViewBinding>(protected val context: Co
             }
             diffJob?.cancel()
             diffJob = Coroutine.async {
-                val diffResult = if (skipDiff) withTimeoutOrNull(500L) {
-                    DiffUtil.calculateDiff(callback)
+                val diffResult = if (skipDiff) withTimeoutOrNullAsync(500L) {
+                    DiffUtil.calculateDiff(callback, itemsSize < 2000)
                 } else {
-                    DiffUtil.calculateDiff(callback)
+                    DiffUtil.calculateDiff(callback, itemsSize < 2000)
                 }
                 ensureActive()
                 handler.post {

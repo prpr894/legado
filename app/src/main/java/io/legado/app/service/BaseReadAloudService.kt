@@ -113,7 +113,8 @@ abstract class BaseReadAloudService : BaseService(),
     var pageChanged = false
     private var toLast = false
     var paragraphStartPos = 0
-    private var readAloudByPage = false
+    var readAloudByPage = false
+        private set
 
     private val broadcastReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -168,6 +169,7 @@ abstract class BaseReadAloudService : BaseService(),
         abandonFocus()
         unregisterReceiver(broadcastReceiver)
         postEvent(EventBus.ALOUD_STATE, Status.STOP)
+        notificationManager.cancel(NotificationId.ReadAloudService)
         upMediaSessionPlaybackState(PlaybackStateCompat.STATE_STOPPED)
         mediaSessionCompat.release()
         ReadBook.uploadProgress()
@@ -217,7 +219,7 @@ abstract class BaseReadAloudService : BaseService(),
             }
             nowSpeak = textChapter.getParagraphNum(readAloudNumber + 1, readAloudByPage) - 1
             if (!readAloudByPage && startPos == 0 && !toLast) {
-                pos = page.lines.first().chapterPosition -
+                pos = page.chapterPosition -
                         textChapter.paragraphs[nowSpeak].chapterPosition
             }
             if (toLast) {
@@ -225,7 +227,7 @@ abstract class BaseReadAloudService : BaseService(),
                 readAloudNumber = textChapter.getLastParagraphPosition()
                 nowSpeak = contentList.lastIndex
                 if (page.paragraphs.size == 1) {
-                    pos = page.lines.first().chapterPosition -
+                    pos = page.chapterPosition -
                             textChapter.paragraphs[nowSpeak].chapterPosition
                 }
             }
@@ -496,6 +498,9 @@ abstract class BaseReadAloudService : BaseService(),
             nSubtitle = getString(R.string.read_aloud_s)
         val builder = NotificationCompat
             .Builder(this@BaseReadAloudService, AppConst.channelIdReadAloud)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+            .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
             .setSmallIcon(R.drawable.ic_volume_up)
             .setSubText(getString(R.string.read_aloud))
             .setOngoing(true)
@@ -535,7 +540,7 @@ abstract class BaseReadAloudService : BaseService(),
             androidx.media.app.NotificationCompat.MediaStyle()
                 .setShowActionsInCompactView(0, 1, 2)
         )
-        return builder.setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+        return builder
     }
 
     /**

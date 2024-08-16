@@ -38,6 +38,7 @@ object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
     var themeMode = appCtx.getPrefString(PreferKey.themeMode, "0")
     var useDefaultCover = appCtx.getPrefBoolean(PreferKey.useDefaultCover, false)
     var optimizeRender = appCtx.getPrefBoolean(PreferKey.optimizeRender, false)
+    var recordLog = appCtx.getPrefBoolean(PreferKey.recordLog)
 
     override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences?, key: String?) {
         when (key) {
@@ -88,6 +89,8 @@ object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
 
             PreferKey.optimizeRender -> optimizeRender =
                 appCtx.getPrefBoolean(PreferKey.optimizeRender, false)
+
+            PreferKey.recordLog -> recordLog = appCtx.getPrefBoolean(PreferKey.recordLog)
 
         }
     }
@@ -456,8 +459,6 @@ object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
 
     val webDavDeviceName get() = appCtx.getPrefString(PreferKey.webDavDeviceName, Build.MODEL)
 
-    val recordLog get() = appCtx.getPrefBoolean(PreferKey.recordLog)
-
     val recordHeapDump get() = appCtx.getPrefBoolean(PreferKey.recordHeapDump, false)
 
     val loadCoverOnlyWifi get() = appCtx.getPrefBoolean(PreferKey.loadCoverOnlyWifi, false)
@@ -469,6 +470,10 @@ object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
     val onlyLatestBackup get() = appCtx.getPrefBoolean(PreferKey.onlyLatestBackup, true)
 
     val defaultHomePage get() = appCtx.getPrefString(PreferKey.defaultHomePage, "bookshelf")
+
+    val updateToVariant get() = appCtx.getPrefString(PreferKey.updateToVariant, "default_version")
+
+    val streamReadAloudAudio get() = appCtx.getPrefBoolean(PreferKey.streamReadAloudAudio, false)
 
     val doublePageHorizontal: String?
         get() = appCtx.getPrefString(PreferKey.doublePageHorizontal)

@@ -6,7 +6,6 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Ignore
 import androidx.room.Index
-import io.legado.app.R
 import io.legado.app.constant.AppLog
 import io.legado.app.constant.AppPattern
 import io.legado.app.data.appDb
@@ -51,6 +50,7 @@ data class BookChapter(
     var isPay: Boolean = false,         // 是否已购买
     var resourceUrl: String? = null,    // 音频真实URL
     var tag: String? = null,            // 更新时间或其他章节附加信息
+    var wordCount: String? = null,      // 本章节字数
     var start: Long? = null,            // 章节起始位置
     var end: Long? = null,              // 章节终止位置
     var startFragmentId: String? = null,  //EPUB书籍当前章节的fragmentId
@@ -137,11 +137,7 @@ data class BookChapter(
                 }
             }
         }
-        return when {
-            !isVip -> displayTitle
-            isPay -> appCtx.getString(R.string.payed_title, displayTitle)
-            else -> appCtx.getString(R.string.vip_title, displayTitle)
-        }
+        return displayTitle
     }
 
     fun getAbsoluteURL(): String {

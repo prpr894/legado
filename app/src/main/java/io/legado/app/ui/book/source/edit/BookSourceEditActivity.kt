@@ -1,6 +1,5 @@
 package io.legado.app.ui.book.source.edit
 
-import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import android.view.Menu
@@ -8,7 +7,6 @@ import android.view.MenuItem
 import android.widget.EditText
 import androidx.activity.viewModels
 import androidx.lifecycle.lifecycleScope
-import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.tabs.TabLayout
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import io.legado.app.R
@@ -38,12 +36,16 @@ import io.legado.app.ui.qrcode.QrCodeResult
 import io.legado.app.ui.widget.dialog.UrlOptionDialog
 import io.legado.app.ui.widget.dialog.VariableDialog
 import io.legado.app.ui.widget.keyboard.KeyboardToolPop
+import io.legado.app.ui.widget.recycler.NoChildScrollLinearLayoutManager
 import io.legado.app.ui.widget.text.EditEntity
 import io.legado.app.utils.GSON
+import io.legado.app.utils.imeHeight
 import io.legado.app.utils.isContentScheme
 import io.legado.app.utils.launch
+import io.legado.app.utils.navigationBarHeight
 import io.legado.app.utils.sendToClip
 import io.legado.app.utils.setEdgeEffectColor
+import io.legado.app.utils.setOnApplyWindowInsetsListenerCompat
 import io.legado.app.utils.share
 import io.legado.app.utils.shareWithQr
 import io.legado.app.utils.showDialogFragment
@@ -53,9 +55,10 @@ import io.legado.app.utils.viewbindingdelegate.viewBinding
 import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import splitties.views.bottomPadding
 
 class BookSourceEditActivity :
-    VMBaseActivity<ActivityBookSourceEditBinding, BookSourceEditViewModel>(false),
+    VMBaseActivity<ActivityBookSourceEditBinding, BookSourceEditViewModel>(),
     KeyboardToolPop.CallBack,
     VariableDialog.Callback {
 
@@ -69,7 +72,8 @@ class BookSourceEditActivity :
     private val infoEntities: ArrayList<EditEntity> = ArrayList()
     private val tocEntities: ArrayList<EditEntity> = ArrayList()
     private val contentEntities: ArrayList<EditEntity> = ArrayList()
-//    private val reviewEntities: ArrayList<EditEntity> = ArrayList()
+
+    //    private val reviewEntities: ArrayList<EditEntity> = ArrayList()
     private val qrCodeResult = registerForActivityResult(QrCodeResult()) {
         it ?: return@registerForActivityResult
         viewModel.importSource(it) { source ->
@@ -119,7 +123,7 @@ class BookSourceEditActivity :
     override fun onCompatOptionsItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
             R.id.menu_save -> viewModel.save(getSource()) {
-                setResult(Activity.RESULT_OK, Intent().putExtra("origin", it.bookSourceUrl))
+                setResult(RESULT_OK, Intent().putExtra("origin", it.bookSourceUrl))
                 finish()
             }
 
@@ -180,7 +184,7 @@ class BookSourceEditActivity :
             setText(R.string.source_tab_content)
         })
         binding.recyclerView.setEdgeEffectColor(primaryColor)
-        binding.recyclerView.layoutManager = LinearLayoutManager(this)
+        binding.recyclerView.layoutManager = NoChildScrollLinearLayoutManager(this)
         binding.recyclerView.adapter = adapter
         binding.tabLayout.setBackgroundColor(backgroundColor)
         binding.tabLayout.setSelectedTabIndicatorColor(accentColor)
@@ -197,6 +201,13 @@ class BookSourceEditActivity :
                 setEditEntities(tab?.position)
             }
         })
+        binding.recyclerView.setOnApplyWindowInsetsListenerCompat { view, windowInsets ->
+            val navigationBarHeight = windowInsets.navigationBarHeight
+            val imeHeight = windowInsets.imeHeight
+            view.bottomPadding = if (imeHeight == 0) navigationBarHeight else 0
+            softKeyboardTool.initialPadding = imeHeight
+            windowInsets
+        }
     }
 
     override fun finish() {
@@ -377,6 +388,7 @@ class BookSourceEditActivity :
         val contentRule = ContentRule()
 //        val reviewRule = ReviewRule()
         sourceEntities.forEach {
+            it.value = it.value?.takeIf { s -> s.isNotBlank() }
             when (it.key) {
                 "bookSourceUrl" -> source.bookSourceUrl = it.value ?: ""
                 "bookSourceName" -> source.bookSourceName = it.value ?: ""
@@ -394,6 +406,7 @@ class BookSourceEditActivity :
             }
         }
         searchEntities.forEach {
+            it.value = it.value?.takeIf { s -> s.isNotBlank() }
             when (it.key) {
                 "searchUrl" -> source.searchUrl = it.value
                 "checkKeyWord" -> searchRule.checkKeyWord = it.value
@@ -427,6 +440,7 @@ class BookSourceEditActivity :
             }
         }
         exploreEntities.forEach {
+            it.value = it.value?.takeIf { s -> s.isNotBlank() }
             when (it.key) {
                 "exploreUrl" -> source.exploreUrl = it.value
                 "bookList" -> exploreRule.bookList = it.value
@@ -459,6 +473,7 @@ class BookSourceEditActivity :
             }
         }
         infoEntities.forEach {
+            it.value = it.value?.takeIf { s -> s.isNotBlank() }
             when (it.key) {
                 "init" -> bookInfoRule.init = it.value
                 "name" -> bookInfoRule.name = viewModel.ruleComplete(it.value, bookInfoRule.init)
@@ -492,6 +507,7 @@ class BookSourceEditActivity :
             }
         }
         tocEntities.forEach {
+            it.value = it.value?.takeIf { s -> s.isNotBlank() }
             when (it.key) {
                 "preUpdateJs" -> tocRule.preUpdateJs = it.value
                 "chapterList" -> tocRule.chapterList = it.value
@@ -511,6 +527,7 @@ class BookSourceEditActivity :
             }
         }
         contentEntities.forEach {
+            it.value = it.value?.takeIf { s -> s.isNotBlank() }
             when (it.key) {
                 "content" -> contentRule.content = viewModel.ruleComplete(it.value)
                 "title" -> contentRule.title = viewModel.ruleComplete(it.value)
@@ -615,6 +632,8 @@ class BookSourceEditActivity :
             val edit = view.editableText//获取EditText的文字
             if (start < 0 || start >= edit.length) {
                 edit.append(text)
+            } else if (start > end) {
+                edit.replace(end, start, text)
             } else {
                 edit.replace(start, end, text)//光标所在位置插入文字
             }

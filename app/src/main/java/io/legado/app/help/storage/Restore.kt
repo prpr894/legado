@@ -1,6 +1,7 @@
 package io.legado.app.help.storage
 
 import android.content.Context
+import android.database.sqlite.SQLiteConstraintException
 import android.net.Uri
 import androidx.documentfile.provider.DocumentFile
 import io.legado.app.BuildConfig
@@ -24,7 +25,6 @@ import io.legado.app.data.entities.RuleSub
 import io.legado.app.data.entities.SearchKeyword
 import io.legado.app.data.entities.Server
 import io.legado.app.data.entities.TxtTocRule
-import io.legado.app.help.AppWebDav
 import io.legado.app.help.DirectLinkUpload
 import io.legado.app.help.LauncherIconHelp
 import io.legado.app.help.book.isLocal
@@ -32,10 +32,12 @@ import io.legado.app.help.book.upType
 import io.legado.app.help.config.LocalConfig
 import io.legado.app.help.config.ReadBookConfig
 import io.legado.app.help.config.ThemeConfig
+import io.legado.app.model.BookCover
 import io.legado.app.model.localBook.LocalBook
 import io.legado.app.utils.ACache
 import io.legado.app.utils.FileUtils
 import io.legado.app.utils.GSON
+import io.legado.app.utils.LogUtils
 import io.legado.app.utils.compress.ZipUtils
 import io.legado.app.utils.defaultSharedPreferences
 import io.legado.app.utils.fromJsonArray
@@ -49,6 +51,8 @@ import io.legado.app.utils.openInputStream
 import io.legado.app.utils.toastOnUi
 import kotlinx.coroutines.Dispatchers.Main
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import splitties.init.appCtx
 import java.io.File
@@ -59,7 +63,12 @@ import java.io.FileInputStream
  */
 object Restore {
 
+    private val mutex = Mutex()
+
+    private const val TAG = "Restore"
+
     suspend fun restore(context: Context, uri: Uri) {
+        LogUtils.d(TAG, "开始恢复备份 uri:$uri")
         kotlin.runCatching {
             FileUtils.delete(Backup.backupPath)
             if (uri.isContentScheme()) {
@@ -74,7 +83,7 @@ object Restore {
             return
         }
         kotlin.runCatching {
-            restore(Backup.backupPath)
+            restoreLocked(Backup.backupPath)
             LocalConfig.lastBackup = System.currentTimeMillis()
         }.onFailure {
             appCtx.toastOnUi("恢复备份出错\n${it.localizedMessage}")
@@ -82,7 +91,13 @@ object Restore {
         }
     }
 
-    suspend fun restore(path: String) {
+    suspend fun restoreLocked(path: String) {
+        mutex.withLock {
+            restore(path)
+        }
+    }
+
+    private suspend fun restore(path: String) {
         val aes = BackupAES()
         fileToListT<Book>(path, "bookshelf.json")?.let {
             it.forEach { book ->
@@ -92,16 +107,22 @@ object Restore {
                 .forEach { book ->
                     book.coverUrl = LocalBook.getCoverPath(book)
                 }
-            val updateBooks = arrayListOf<Book>()
             val newBooks = arrayListOf<Book>()
+            val ignoreLocalBook = BackupConfig.ignoreLocalBook
             it.forEach { book ->
-                if (appDb.bookDao.has(book.bookUrl) == true) {
-                    updateBooks.add(book)
+                if (ignoreLocalBook && book.isLocal) {
+                    return@forEach
+                }
+                if (appDb.bookDao.has(book.bookUrl)) {
+                    try {
+                        appDb.bookDao.update(book)
+                    } catch (_: SQLiteConstraintException) {
+                        appDb.bookDao.insert(book)
+                    }
                 } else {
                     newBooks.add(book)
                 }
             }
-            appDb.bookDao.update(*updateBooks.toTypedArray())
             appDb.bookDao.insert(*newBooks.toTypedArray())
         }
         fileToListT<Bookmark>(path, "bookmark.json")?.let {
@@ -191,6 +212,14 @@ object Restore {
         }?.onFailure {
             AppLog.put("恢复主题出错\n${it.localizedMessage}", it)
         }
+        File(path, BookCover.configFileName).takeIf {
+            it.exists()
+        }?.runCatching {
+            val json = readText()
+            BookCover.saveCoverRule(json)
+        }?.onFailure {
+            AppLog.put("恢复封面规则出错\n${it.localizedMessage}", it)
+        }
         if (!BackupConfig.ignoreReadConfig) {
             //恢复阅读界面配置
             File(path, ReadBookConfig.configFileName).takeIf {
@@ -212,7 +241,7 @@ object Restore {
                 AppLog.put("恢复阅读界面出错\n${it.localizedMessage}", it)
             }
         }
-        AppWebDav.downBgs()
+        //AppWebDav.downBgs()
         appCtx.getSharedPreferences(path, "config")?.all?.let { map ->
             val edit = appCtx.defaultSharedPreferences.edit()
 
@@ -246,7 +275,8 @@ object Restore {
             edit.apply()
         }
         ReadBookConfig.apply {
-            styleSelect = appCtx.getPrefInt(PreferKey.readStyleSelect)
+            comicStyleSelect = appCtx.getPrefInt(PreferKey.comicStyleSelect)
+            readStyleSelect = appCtx.getPrefInt(PreferKey.readStyleSelect)
             shareLayout = appCtx.getPrefBoolean(PreferKey.shareLayout)
             hideStatusBar = appCtx.getPrefBoolean(PreferKey.hideStatusBar)
             hideNavigationBar = appCtx.getPrefBoolean(PreferKey.hideNavigationBar)
@@ -266,9 +296,14 @@ object Restore {
         try {
             val file = File(path, fileName)
             if (file.exists()) {
+                LogUtils.d(TAG, "阅读恢复备份 $fileName 文件大小 ${file.length()}")
                 FileInputStream(file).use {
-                    return GSON.fromJsonArray<T>(it).getOrThrow()
+                    return GSON.fromJsonArray<T>(it).getOrThrow().also { list ->
+                        LogUtils.d(TAG, "阅读恢复备份 $fileName 列表大小 ${list.size}")
+                    }
                 }
+            } else {
+                LogUtils.d(TAG, "阅读恢复备份 $fileName 文件不存在")
             }
         } catch (e: Exception) {
             AppLog.put("$fileName\n读取解析出错\n${e.localizedMessage}", e)

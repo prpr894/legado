@@ -16,19 +16,22 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.sync.Semaphore
 import kotlin.coroutines.CoroutineContext
 
 abstract class BaseService : LifecycleService() {
 
     private val simpleName = this::class.simpleName.toString()
+    private var isForeground = false
 
     fun <T> execute(
         scope: CoroutineScope = lifecycleScope,
         context: CoroutineContext = Dispatchers.IO,
         start: CoroutineStart = CoroutineStart.DEFAULT,
         executeContext: CoroutineContext = Dispatchers.Main,
+        semaphore: Semaphore? = null,
         block: suspend CoroutineScope.() -> T
-    ) = Coroutine.async(scope, context, start, executeContext, block)
+    ) = Coroutine.async(scope, context, start, executeContext, semaphore, block)
 
     @CallSuper
     override fun onCreate() {
@@ -42,7 +45,10 @@ abstract class BaseService : LifecycleService() {
         LogUtils.d(simpleName) {
             "onStartCommand $intent ${intent?.toUri(0)}"
         }
-        startForegroundNotification()
+        if (!isForeground) {
+            startForegroundNotification()
+            isForeground = true
+        }
         return super.onStartCommand(intent, flags, startId)
     }
 
@@ -62,6 +68,13 @@ abstract class BaseService : LifecycleService() {
     override fun onDestroy() {
         super.onDestroy()
         LifecycleHelp.onServiceDestroy(this)
+    }
+
+    @CallSuper
+    override fun onTimeout(startId: Int, fgsType: Int) {
+        super.onTimeout(startId, fgsType)
+        LogUtils.d(simpleName, "onTimeout startId:$startId fgsType:$fgsType")
+        stopSelf()
     }
 
     /**

@@ -11,12 +11,14 @@ import androidx.lifecycle.lifecycleScope
 import io.legado.app.R
 import io.legado.app.base.VMBaseActivity
 import io.legado.app.databinding.ActivitySourceDebugBinding
+import io.legado.app.help.source.clearExploreKindsCache
 import io.legado.app.help.source.exploreKinds
 import io.legado.app.lib.dialogs.selector
 import io.legado.app.lib.theme.accentColor
 import io.legado.app.lib.theme.primaryColor
 import io.legado.app.ui.qrcode.QrCodeResult
 import io.legado.app.ui.widget.dialog.TextDialog
+import io.legado.app.utils.applyNavigationBarPadding
 import io.legado.app.utils.launch
 import io.legado.app.utils.setEdgeEffectColor
 import io.legado.app.utils.showDialogFragment
@@ -61,6 +63,7 @@ class BookSourceDebugActivity : VMBaseActivity<ActivitySourceDebugBinding, BookS
     private fun initRecyclerView() {
         binding.recyclerView.setEdgeEffectColor(primaryColor)
         binding.recyclerView.adapter = adapter
+        binding.recyclerView.applyNavigationBarPadding()
         binding.rotateLoading.loadingColor = accentColor
     }
 
@@ -115,27 +118,39 @@ class BookSourceDebugActivity : VMBaseActivity<ActivitySourceDebugBinding, BookS
         binding.textContent.onClick {
             prefixAutoComplete("--")
         }
+        initExploreKinds()
+    }
+
+    @SuppressLint("SetTextI18n")
+    private fun initExploreKinds() {
         lifecycleScope.launch {
-            val exploreKinds = viewModel.bookSource?.exploreKinds()?.filter {
-                !it.url.isNullOrBlank()
-            }
-            exploreKinds?.firstOrNull()?.let {
-                binding.textFx.text = "${it.title}::${it.url}"
-                if (it.title.startsWith("ERROR:")) {
-                    adapter.addItem("获取发现出错\n${it.url}")
-                    openOrCloseHelp(false)
-                    searchView.clearFocus()
-                    return@launch
+            try {
+                val exploreKinds = viewModel.bookSource?.exploreKinds()?.filter {
+                    !it.url.isNullOrBlank()
                 }
-            }
-            exploreKinds?.map { it.title }?.let { exploreKindTitles ->
-                binding.textFx.onLongClick {
-                    selector("选择发现", exploreKindTitles) { _, index ->
-                        val explore = exploreKinds[index]
-                        binding.textFx.text = "${explore.title}::${explore.url}"
-                        searchView.setQuery(binding.textFx.text, true)
+                exploreKinds?.firstOrNull()?.let {
+                    binding.textFx.text = "${it.title}::${it.url}"
+                    if (it.title.startsWith("ERROR:")) {
+                        adapter.addItem("获取发现出错\n${it.url}")
+                        openOrCloseHelp(false)
+                        searchView.clearFocus()
+                        return@launch
                     }
                 }
+                @Suppress("USELESS_ELVIS")
+                exploreKinds?.map { it.title ?: "" }?.let { exploreKindTitles ->
+                    binding.textFx.onLongClick {
+                        selector("选择发现", exploreKindTitles) { _, index ->
+                            val explore = exploreKinds[index]
+                            binding.textFx.text = "${explore.title}::${explore.url}"
+                            searchView.setQuery(binding.textFx.text, true)
+                        }
+                    }
+                }
+            } catch (e: NullPointerException) {
+                adapter.addItem("获取发现出错 JSON 数据错误\n$e")
+                openOrCloseHelp(false)
+                searchView.clearFocus()
             }
         }
     }
@@ -185,6 +200,13 @@ class BookSourceDebugActivity : VMBaseActivity<ActivitySourceDebugBinding, BookS
             R.id.menu_book_src -> showDialogFragment(TextDialog("html", viewModel.bookSrc))
             R.id.menu_toc_src -> showDialogFragment(TextDialog("html", viewModel.tocSrc))
             R.id.menu_content_src -> showDialogFragment(TextDialog("html", viewModel.contentSrc))
+            R.id.menu_refresh_explore -> lifecycleScope.launch {
+                viewModel.bookSource?.clearExploreKindsCache()
+                adapter.clearItems()
+                openOrCloseHelp(true)
+                initExploreKinds()
+            }
+
             R.id.menu_help -> showHelp("debugHelp")
         }
         return super.onCompatOptionsItemSelected(item)

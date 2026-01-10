@@ -5,10 +5,13 @@ import androidx.core.os.bundleOf
 import androidx.recyclerview.widget.DiffUtil
 import androidx.viewbinding.ViewBinding
 import io.legado.app.base.adapter.DiffRecyclerAdapter
+import io.legado.app.base.adapter.ItemViewHolder
 import io.legado.app.data.entities.Book
 
 abstract class BaseBooksAdapter<VB : ViewBinding>(context: Context) :
     DiffRecyclerAdapter<Book, VB>(context) {
+
+    override val keepScrollPosition = true
 
     override val diffItemCallback: DiffUtil.ItemCallback<Book> =
         object : DiffUtil.ItemCallback<Book>() {
@@ -64,6 +67,12 @@ abstract class BaseBooksAdapter<VB : ViewBinding>(context: Context) :
             }
 
         }
+
+    override fun onViewRecycled(holder: ItemViewHolder) {
+        super.onViewRecycled(holder)
+        holder.itemView.setOnClickListener(null)
+        holder.itemView.setOnLongClickListener(null)
+    }
 
     fun notification(bookUrl: String) {
         getItems().forEachIndexed { i, it ->

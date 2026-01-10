@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package io.legado.app.service
 
 import android.annotation.SuppressLint
@@ -14,6 +16,8 @@ import android.os.Bundle
 import android.os.PowerManager
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
+import android.telephony.PhoneStateListener
+import android.telephony.TelephonyManager
 import androidx.annotation.CallSuper
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.lifecycleScope
@@ -23,6 +27,7 @@ import io.legado.app.R
 import io.legado.app.base.BaseService
 import io.legado.app.constant.AppConst
 import io.legado.app.constant.AppLog
+import io.legado.app.constant.AppPattern
 import io.legado.app.constant.EventBus
 import io.legado.app.constant.IntentAction
 import io.legado.app.constant.NotificationId
@@ -30,16 +35,21 @@ import io.legado.app.constant.PreferKey
 import io.legado.app.constant.Status
 import io.legado.app.help.MediaHelp
 import io.legado.app.help.config.AppConfig
+import io.legado.app.help.coroutine.Coroutine
 import io.legado.app.help.glide.ImageLoader
+import io.legado.app.lib.permission.Permissions
+import io.legado.app.lib.permission.PermissionsCompat
 import io.legado.app.model.ReadAloud
 import io.legado.app.model.ReadBook
 import io.legado.app.receiver.MediaButtonReceiver
 import io.legado.app.ui.book.read.ReadBookActivity
 import io.legado.app.ui.book.read.page.entities.TextChapter
+import io.legado.app.utils.LogUtils
 import io.legado.app.utils.activityPendingIntent
 import io.legado.app.utils.broadcastPendingIntent
 import io.legado.app.utils.getPrefBoolean
 import io.legado.app.utils.observeEvent
+import io.legado.app.utils.observeSharedPreferences
 import io.legado.app.utils.postEvent
 import io.legado.app.utils.toastOnUi
 import kotlinx.coroutines.Dispatchers.IO
@@ -52,6 +62,7 @@ import splitties.init.appCtx
 import splitties.systemservices.audioManager
 import splitties.systemservices.notificationManager
 import splitties.systemservices.powerManager
+import splitties.systemservices.telephonyManager
 import splitties.systemservices.wifiManager
 
 /**
@@ -101,13 +112,19 @@ abstract class BaseReadAloudService : BaseService(),
     private val mediaSessionCompat: MediaSessionCompat by lazy {
         MediaSessionCompat(this, "readAloud")
     }
+    private val phoneStateListener by lazy {
+        ReadAloudPhoneStateListener()
+    }
     internal var contentList = emptyList<String>()
     internal var nowSpeak: Int = 0
     internal var readAloudNumber: Int = 0
     internal var textChapter: TextChapter? = null
     internal var pageIndex = 0
     private var needResumeOnAudioFocusGain = false
+    private var needResumeOnCallStateIdle = false
+    private var registeredPhoneStateListener = false
     private var dsJob: Job? = null
+    private var upNotificationJob: Coroutine<*>? = null
     private var cover: Bitmap =
         BitmapFactory.decodeResource(appCtx.resources, R.drawable.icon_read_book)
     var pageChanged = false
@@ -132,20 +149,22 @@ abstract class BaseReadAloudService : BaseService(),
         observeLiveBus()
         initMediaSession()
         initBroadcastReceiver()
+        initPhoneStateListener()
         upMediaSessionPlaybackState(PlaybackStateCompat.STATE_PLAYING)
         setTimer(AppConfig.ttsTimer)
         if (AppConfig.ttsTimer > 0) {
             toastOnUi("朗读定时 ${AppConfig.ttsTimer} 分钟")
         }
         execute {
-            @Suppress("BlockingMethodInNonBlockingContext")
             ImageLoader
                 .loadBitmap(this@BaseReadAloudService, ReadBook.book?.getDisplayCover())
                 .submit()
                 .get()
         }.onSuccess {
-            cover = it
-            upReadAloudNotification()
+            if (it.width > 16 && it.height > 16) {
+                cover = it
+                upReadAloudNotification()
+            }
         }
     }
 
@@ -155,6 +174,14 @@ abstract class BaseReadAloudService : BaseService(),
             val pageIndex = it.getInt("pageIndex")
             val startPos = it.getInt("startPos")
             newReadAloud(play, pageIndex, startPos)
+        }
+        observeSharedPreferences { _, key ->
+            when (key) {
+                PreferKey.ignoreAudioFocus,
+                PreferKey.pauseReadAloudWhilePhoneCalls -> {
+                    initPhoneStateListener()
+                }
+            }
         }
     }
 
@@ -173,6 +200,10 @@ abstract class BaseReadAloudService : BaseService(),
         upMediaSessionPlaybackState(PlaybackStateCompat.STATE_STOPPED)
         mediaSessionCompat.release()
         ReadBook.uploadProgress()
+        unregisterPhoneStateListener(phoneStateListener)
+        upNotificationJob?.invokeOnCompletion {
+            notificationManager.cancel(NotificationId.ReadAloudService)
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -188,6 +219,8 @@ abstract class BaseReadAloudService : BaseService(),
             IntentAction.upTtsSpeechRate -> upSpeechRate(true)
             IntentAction.prevParagraph -> prevP()
             IntentAction.nextParagraph -> nextP()
+            IntentAction.prev -> prevChapter()
+            IntentAction.next -> nextChapter()
             IntentAction.addTimer -> addTimer()
             IntentAction.setTimer -> setTimer(intent.getIntExtra("minute", 0))
             IntentAction.stop -> stopSelf()
@@ -249,7 +282,9 @@ abstract class BaseReadAloudService : BaseService(),
         isRun = true
         pause = false
         needResumeOnAudioFocusGain = false
+        needResumeOnCallStateIdle = false
         upReadAloudNotification()
+        upMediaSessionPlaybackState(PlaybackStateCompat.STATE_PLAYING)
         postEvent(EventBus.ALOUD_STATE, Status.PLAY)
     }
 
@@ -275,7 +310,13 @@ abstract class BaseReadAloudService : BaseService(),
     @SuppressLint("WakelockTimeout")
     @CallSuper
     open fun resumeReadAloud() {
+        resumeReadAloudInternal()
+    }
+
+    private fun resumeReadAloudInternal() {
         pause = false
+        needResumeOnAudioFocusGain = false
+        needResumeOnCallStateIdle = false
         upReadAloudNotification()
         upMediaSessionPlaybackState(PlaybackStateCompat.STATE_PLAYING)
         postEvent(EventBus.ALOUD_STATE, Status.PLAY)
@@ -290,9 +331,11 @@ abstract class BaseReadAloudService : BaseService(),
     private fun prevP() {
         if (nowSpeak > 0) {
             playStop()
-            nowSpeak--
-            readAloudNumber -= contentList[nowSpeak].length + 1 + paragraphStartPos
-            paragraphStartPos = 0
+            do {
+                nowSpeak--
+                readAloudNumber -= contentList[nowSpeak].length + 1 + paragraphStartPos
+                paragraphStartPos = 0
+            } while (contentList[nowSpeak].matches(AppPattern.notReadAloudRegex))
             textChapter?.let {
                 if (readAloudByPage) {
                     val paragraphs = it.getParagraphs(true)
@@ -322,7 +365,9 @@ abstract class BaseReadAloudService : BaseService(),
                     val paragraphs = it.getParagraphs(true)
                     if (!paragraphs[nowSpeak].isParagraphEnd) readAloudNumber--
                 }
-                if (readAloudNumber >= it.getReadLength(pageIndex + 1)) {
+                if (pageIndex + 1 < it.pageSize
+                    && readAloudNumber >= it.getReadLength(pageIndex + 1)
+                ) {
                     pageIndex++
                     ReadBook.moveToNextPage()
                 }
@@ -366,6 +411,8 @@ abstract class BaseReadAloudService : BaseService(),
                     }
                     if (timeMinute == 0) {
                         ReadAloud.stop(this@BaseReadAloudService)
+                        postEvent(EventBus.READ_ALOUD_DS, timeMinute)
+                        break
                     }
                 }
                 postEvent(EventBus.READ_ALOUD_DS, timeMinute)
@@ -405,6 +452,14 @@ abstract class BaseReadAloudService : BaseService(),
             PlaybackStateCompat.Builder()
                 .setActions(MediaHelp.MEDIA_SESSION_ACTIONS)
                 .setState(state, nowSpeak.toLong(), 1f)
+                // 为系统媒体控件添加定时按钮
+                .addCustomAction(
+                    PlaybackStateCompat.CustomAction.Builder(
+                        "ACTION_ADD_TIMER",
+                        getString(R.string.set_timer),
+                        R.drawable.ic_time_add_24dp
+                    ).build()
+                )
                 .build()
         )
     }
@@ -414,11 +469,55 @@ abstract class BaseReadAloudService : BaseService(),
      */
     @SuppressLint("UnspecifiedImmutableFlag")
     private fun initMediaSession() {
-        mediaSessionCompat.setCallback(object : MediaSessionCompat.Callback() {
-            override fun onMediaButtonEvent(mediaButtonEvent: Intent): Boolean {
-                return MediaButtonReceiver.handleIntent(this@BaseReadAloudService, mediaButtonEvent)
-            }
-        })
+        if (getPrefBoolean("systemMediaControlCompatibilityChange")) {
+            mediaSessionCompat.setCallback(object : MediaSessionCompat.Callback() {
+                override fun onPlay() {
+                    resumeReadAloud()
+                }
+
+                override fun onPause() {
+                    pauseReadAloud()
+                }
+
+                override fun onSkipToNext() {
+                    if (getPrefBoolean("mediaButtonPerNext", false)) {
+                        nextChapter()
+                    } else {
+                        nextP()
+                    }
+                }
+
+                override fun onSkipToPrevious() {
+                    if (getPrefBoolean("mediaButtonPerNext", false)) {
+                        prevChapter()
+                    } else {
+                        prevP()
+                    }
+                }
+
+                override fun onStop() {
+                    stopSelf()
+                }
+
+                override fun onCustomAction(action: String, extras: Bundle?) {
+                    if (action == "ACTION_ADD_TIMER") addTimer()
+                }
+
+                override fun onMediaButtonEvent(mediaButtonEvent: Intent): Boolean {
+                    return MediaButtonReceiver.handleIntent(
+                        this@BaseReadAloudService, mediaButtonEvent
+                    )
+                }
+            })
+        } else {
+            mediaSessionCompat.setCallback(object : MediaSessionCompat.Callback() {
+                override fun onMediaButtonEvent(mediaButtonEvent: Intent): Boolean {
+                    return MediaButtonReceiver.handleIntent(
+                        this@BaseReadAloudService, mediaButtonEvent
+                    )
+                }
+            })
+        }
         mediaSessionCompat.setMediaButtonReceiver(
             broadcastPendingIntent<MediaButtonReceiver>(Intent.ACTION_MEDIA_BUTTON)
         )
@@ -472,7 +571,7 @@ abstract class BaseReadAloudService : BaseService(),
     }
 
     private fun upReadAloudNotification() {
-        execute {
+        upNotificationJob = execute {
             try {
                 val notification = createNotification()
                 notificationManager.notify(NotificationId.ReadAloudService, notification.build())
@@ -480,6 +579,16 @@ abstract class BaseReadAloudService : BaseService(),
                 AppLog.put("创建朗读通知出错,${e.localizedMessage}", e, true)
             }
         }
+    }
+
+    private fun choiceMediaStyle(): androidx.media.app.NotificationCompat.MediaStyle {
+        val mediaStyle = androidx.media.app.NotificationCompat.MediaStyle()
+            .setShowActionsInCompactView(1, 2, 4)
+        if (getPrefBoolean("systemMediaControlCompatibilityChange")) {
+            //fix #4090 android 14 can not show play control in lock screen
+            mediaStyle.setMediaSession(mediaSessionCompat.sessionToken)
+        }
+        return mediaStyle
     }
 
     private fun createNotification(): NotificationCompat.Builder {
@@ -497,13 +606,14 @@ abstract class BaseReadAloudService : BaseService(),
         if (nSubtitle.isNullOrBlank())
             nSubtitle = getString(R.string.read_aloud_s)
         val builder = NotificationCompat
-            .Builder(this@BaseReadAloudService, AppConst.channelIdReadAloud)
+            .Builder(this, AppConst.channelIdReadAloud)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
             .setSmallIcon(R.drawable.ic_volume_up)
             .setSubText(getString(R.string.read_aloud))
             .setOngoing(true)
+            .setOnlyAlertOnce(true)
             .setContentTitle(nTitle)
             .setContentText(nSubtitle)
             .setContentIntent(
@@ -513,6 +623,12 @@ abstract class BaseReadAloudService : BaseService(),
             .setSound(null)
             .setLights(0, 0, 0)
         builder.setLargeIcon(cover)
+        // 按钮定义：上一章、播放、停止、下一章、定时
+        builder.addAction(
+            R.drawable.ic_skip_previous,
+            getString(R.string.previous_chapter),
+            aloudServicePendingIntent(IntentAction.prev)
+        )
         if (pause) {
             builder.addAction(
                 R.drawable.ic_play_24dp,
@@ -532,14 +648,16 @@ abstract class BaseReadAloudService : BaseService(),
             aloudServicePendingIntent(IntentAction.stop)
         )
         builder.addAction(
+            R.drawable.ic_skip_next,
+            getString(R.string.next_chapter),
+            aloudServicePendingIntent(IntentAction.next)
+        )
+        builder.addAction(
             R.drawable.ic_time_add_24dp,
             getString(R.string.set_timer),
             aloudServicePendingIntent(IntentAction.addTimer)
         )
-        builder.setStyle(
-            androidx.media.app.NotificationCompat.MediaStyle()
-                .setShowActionsInCompactView(0, 1, 2)
-        )
+        builder.setStyle(choiceMediaStyle())
         return builder
     }
 
@@ -561,11 +679,95 @@ abstract class BaseReadAloudService : BaseService(),
 
     abstract fun aloudServicePendingIntent(actionStr: String): PendingIntent?
 
+    open fun prevChapter() {
+        toLast = false
+        resumeReadAloudInternal()
+        ReadBook.moveToPrevChapter(true, toLast = false)
+    }
+
     open fun nextChapter() {
         ReadBook.upReadTime()
         AppLog.putDebug("${ReadBook.curTextChapter?.chapter?.title} 朗读结束跳转下一章并朗读")
+        resumeReadAloudInternal()
         if (!ReadBook.moveToNextChapter(true)) {
             stopSelf()
+        }
+    }
+
+    private fun initPhoneStateListener() {
+        val needRegister = AppConfig.ignoreAudioFocus && AppConfig.pauseReadAloudWhilePhoneCalls
+        if (needRegister && registeredPhoneStateListener) {
+            return
+        }
+        if (needRegister) {
+            registerPhoneStateListener(phoneStateListener)
+        } else {
+            unregisterPhoneStateListener(phoneStateListener)
+        }
+    }
+
+    private fun unregisterPhoneStateListener(l: PhoneStateListener) {
+        if (registeredPhoneStateListener) {
+            withReadPhoneStatePermission {
+                telephonyManager.listen(l, PhoneStateListener.LISTEN_NONE)
+                registeredPhoneStateListener = false
+            }
+        }
+    }
+
+    private fun registerPhoneStateListener(l: PhoneStateListener) {
+        withReadPhoneStatePermission {
+            telephonyManager.listen(l, PhoneStateListener.LISTEN_CALL_STATE)
+            registeredPhoneStateListener = true
+        }
+    }
+
+    private fun withReadPhoneStatePermission(block: () -> Unit) {
+        try {
+            block.invoke()
+        } catch (_: SecurityException) {
+            PermissionsCompat.Builder()
+                .addPermissions(Permissions.READ_PHONE_STATE)
+                .rationale(R.string.read_aloud_read_phone_state_permission_rationale)
+                .onGranted {
+                    try {
+                        block.invoke()
+                    } catch (_: SecurityException) {
+                        LogUtils.d(TAG, "Grant read phone state permission fail.")
+                    }
+                }
+                .request()
+        }
+    }
+
+    @Suppress("OVERRIDE_DEPRECATION")
+    inner class ReadAloudPhoneStateListener : PhoneStateListener() {
+        override fun onCallStateChanged(state: Int, phoneNumber: String?) {
+            super.onCallStateChanged(state, phoneNumber)
+            when (state) {
+                TelephonyManager.CALL_STATE_IDLE -> {
+                    if (needResumeOnCallStateIdle) {
+                        AppLog.put("来电结束,继续朗读")
+                        resumeReadAloud()
+                    } else {
+                        AppLog.put("来电结束")
+                    }
+                }
+
+                TelephonyManager.CALL_STATE_RINGING -> {
+                    if (!pause) {
+                        AppLog.put("来电响铃,暂停朗读")
+                        needResumeOnCallStateIdle = true
+                        pauseReadAloud()
+                    } else {
+                        AppLog.put("来电响铃")
+                    }
+                }
+
+                TelephonyManager.CALL_STATE_OFFHOOK -> {
+                    AppLog.put("来电接听,不做处理")
+                }
+            }
         }
     }
 

@@ -2,7 +2,7 @@ package io.legado.app.model.analyzeRule
 
 import android.text.TextUtils
 import androidx.annotation.Keep
-import com.script.ScriptBindings
+import com.script.CompiledScript
 import com.script.buildScriptBindings
 import com.script.rhino.RhinoScriptEngine
 import io.legado.app.constant.AppPattern.JS_PATTERN
@@ -11,27 +11,35 @@ import io.legado.app.data.entities.BaseSource
 import io.legado.app.data.entities.Book
 import io.legado.app.data.entities.BookChapter
 import io.legado.app.data.entities.BookSource
+import io.legado.app.data.entities.RssArticle
+import io.legado.app.exception.NoStackTraceException
 import io.legado.app.help.CacheManager
 import io.legado.app.help.JsExtensions
 import io.legado.app.help.http.CookieStore
+import io.legado.app.help.source.getShareScope
+import io.legado.app.model.Debug
 import io.legado.app.model.webBook.WebBook
 import io.legado.app.utils.GSON
+import io.legado.app.utils.GSONStrict
 import io.legado.app.utils.NetworkUtils
 import io.legado.app.utils.fromJsonObject
+import io.legado.app.utils.getOrPutLimit
+import io.legado.app.utils.isDataUrl
 import io.legado.app.utils.isJson
 import io.legado.app.utils.printOnDebug
 import io.legado.app.utils.splitNotBlank
 import io.legado.app.utils.stackTraceStr
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.apache.commons.text.StringEscapeUtils
 import org.jsoup.nodes.Node
 import org.mozilla.javascript.NativeObject
+import org.mozilla.javascript.Scriptable
+import java.lang.ref.WeakReference
 import java.net.URL
+import java.util.Locale
 import java.util.regex.Pattern
-import kotlin.collections.component1
-import kotlin.collections.component2
-import kotlin.collections.set
 import kotlin.coroutines.ContinuationInterceptor
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext
@@ -42,20 +50,19 @@ import kotlin.coroutines.EmptyCoroutineContext
 @Keep
 @Suppress("unused", "RegExpRedundantEscape", "MemberVisibilityCanBePrivate")
 class AnalyzeRule(
-    var ruleData: RuleDataInterface? = null,
-    private val source: BaseSource? = null
+    private var ruleData: RuleDataInterface? = null,
+    private val source: BaseSource? = null,
+    private val preUpdateJs: Boolean = false
 ) : JsExtensions {
 
-    val book get() = ruleData as? BaseBook
+    private val book get() = ruleData as? BaseBook
+    private val rssArticle get() = ruleData as? RssArticle
 
-    var chapter: BookChapter? = null
-    var nextChapterUrl: String? = null
-    var content: Any? = null
-        private set
-    var baseUrl: String? = null
-        private set
-    var redirectUrl: URL? = null
-        private set
+    private var chapter: BookChapter? = null
+    private var nextChapterUrl: String? = null
+    private var content: Any? = null
+    private var baseUrl: String? = null
+    private var redirectUrl: URL? = null
     private var isJSON: Boolean = false
     private var isRegex: Boolean = false
 
@@ -63,13 +70,15 @@ class AnalyzeRule(
     private var analyzeByJSoup: AnalyzeByJSoup? = null
     private var analyzeByJSonPath: AnalyzeByJSonPath? = null
 
-    private var objectChangedXP = false
-    private var objectChangedJS = false
-    private var objectChangedJP = false
-
     private val stringRuleCache = hashMapOf<String, List<SourceRule>>()
+    private val regexCache = hashMapOf<String, Regex?>()
+    private val scriptCache = hashMapOf<String, CompiledScript>()
+    private var topScopeRef: WeakReference<Scriptable>? = null
+    private var evalJSCallCount = 0
 
     private var coroutineContext: CoroutineContext = EmptyCoroutineContext
+
+    private var loggedNonStandardJSON = false
 
     @JvmOverloads
     fun setContent(content: Any?, baseUrl: String? = null): AnalyzeRule {
@@ -80,14 +89,9 @@ class AnalyzeRule(
             else -> content.toString().isJson()
         }
         setBaseUrl(baseUrl)
-        objectChangedXP = true
-        objectChangedJS = true
-        objectChangedJP = true
-        return this
-    }
-
-    fun setCoroutineContext(context: CoroutineContext): AnalyzeRule {
-        coroutineContext = context.minusKey(ContinuationInterceptor)
+        analyzeByXPath = null
+        analyzeByJSoup = null
+        analyzeByJSonPath = null
         return this
     }
 
@@ -99,6 +103,9 @@ class AnalyzeRule(
     }
 
     fun setRedirectUrl(url: String): URL? {
+        if (url.isDataUrl()) {
+            return redirectUrl
+        }
         try {
             redirectUrl = URL(url)
         } catch (e: Exception) {
@@ -114,9 +121,8 @@ class AnalyzeRule(
         return if (o != content) {
             AnalyzeByXPath(o)
         } else {
-            if (analyzeByXPath == null || objectChangedXP) {
+            if (analyzeByXPath == null) {
                 analyzeByXPath = AnalyzeByXPath(content!!)
-                objectChangedXP = false
             }
             analyzeByXPath!!
         }
@@ -129,9 +135,8 @@ class AnalyzeRule(
         return if (o != content) {
             AnalyzeByJSoup(o)
         } else {
-            if (analyzeByJSoup == null || objectChangedJS) {
+            if (analyzeByJSoup == null) {
                 analyzeByJSoup = AnalyzeByJSoup(content!!)
-                objectChangedJS = false
             }
             analyzeByJSoup!!
         }
@@ -144,9 +149,8 @@ class AnalyzeRule(
         return if (o != content) {
             AnalyzeByJSonPath(o)
         } else {
-            if (analyzeByJSonPath == null || objectChangedJP) {
+            if (analyzeByJSonPath == null) {
                 analyzeByJSonPath = AnalyzeByJSonPath(content!!)
-                objectChangedJP = false
             }
             analyzeByJSonPath!!
         }
@@ -196,25 +200,25 @@ class AnalyzeRule(
                 for (sourceRule in ruleList) {
                     putRule(sourceRule.putMap)
                     sourceRule.makeUpRule(result)
-                    result?.let {
-                        if (sourceRule.rule.isNotEmpty()) {
-                            result = when (sourceRule.mode) {
-                                Mode.Js -> evalJS(sourceRule.rule, result)
-                                Mode.Json -> getAnalyzeByJSonPath(it).getStringList(sourceRule.rule)
-                                Mode.XPath -> getAnalyzeByXPath(it).getStringList(sourceRule.rule)
-                                Mode.Default -> getAnalyzeByJSoup(it).getStringList(sourceRule.rule)
-                                else -> sourceRule.rule
-                            }
+                    result ?: continue
+                    val rule = sourceRule.rule
+                    if (rule.isNotEmpty()) {
+                        result = when (sourceRule.mode) {
+                            Mode.Js -> evalJS(rule, result)
+                            Mode.Json -> getAnalyzeByJSonPath(result).getStringList(rule)
+                            Mode.XPath -> getAnalyzeByXPath(result).getStringList(rule)
+                            Mode.Default -> getAnalyzeByJSoup(result).getStringList(rule)
+                            else -> rule
                         }
-                        if (sourceRule.replaceRegex.isNotEmpty() && result is List<*>) {
-                            val newList = ArrayList<String>()
-                            for (item in result) {
-                                newList.add(replaceRegex(item.toString(), sourceRule))
-                            }
-                            result = newList
-                        } else if (sourceRule.replaceRegex.isNotEmpty()) {
-                            result = replaceRegex(result.toString(), sourceRule)
+                    }
+                    if (sourceRule.replaceRegex.isNotEmpty() && result is List<*>) {
+                        val newList = ArrayList<String>()
+                        for (item in result) {
+                            newList.add(replaceRegex(item.toString(), sourceRule))
                         }
+                        result = newList
+                    } else if (sourceRule.replaceRegex.isNotEmpty()) {
+                        result = replaceRegex(result.toString(), sourceRule)
                     }
                 }
             }
@@ -283,24 +287,24 @@ class AnalyzeRule(
                 for (sourceRule in ruleList) {
                     putRule(sourceRule.putMap)
                     sourceRule.makeUpRule(result)
-                    result?.let {
-                        if (sourceRule.rule.isNotBlank() || sourceRule.replaceRegex.isEmpty()) {
-                            result = when (sourceRule.mode) {
-                                Mode.Js -> evalJS(sourceRule.rule, it)
-                                Mode.Json -> getAnalyzeByJSonPath(it).getString(sourceRule.rule)
-                                Mode.XPath -> getAnalyzeByXPath(it).getString(sourceRule.rule)
-                                Mode.Default -> if (isUrl) {
-                                    getAnalyzeByJSoup(it).getString0(sourceRule.rule)
-                                } else {
-                                    getAnalyzeByJSoup(it).getString(sourceRule.rule)
-                                }
-
-                                else -> sourceRule.rule
+                    result ?: continue
+                    val rule = sourceRule.rule
+                    if (rule.isNotBlank() || sourceRule.replaceRegex.isEmpty()) {
+                        result = when (sourceRule.mode) {
+                            Mode.Js -> evalJS(rule, result)
+                            Mode.Json -> getAnalyzeByJSonPath(result).getString(rule)
+                            Mode.XPath -> getAnalyzeByXPath(result).getString(rule)
+                            Mode.Default -> if (isUrl) {
+                                getAnalyzeByJSoup(result).getString0(rule)
+                            } else {
+                                getAnalyzeByJSoup(result).getString(rule)
                             }
+
+                            else -> rule
                         }
-                        if ((result != null) && sourceRule.replaceRegex.isNotEmpty()) {
-                            result = replaceRegex(result.toString(), sourceRule)
-                        }
+                    }
+                    if (result != null && sourceRule.replaceRegex.isNotEmpty()) {
+                        result = replaceRegex(result.toString(), sourceRule)
                     }
                 }
             }
@@ -335,21 +339,21 @@ class AnalyzeRule(
             for (sourceRule in ruleList) {
                 putRule(sourceRule.putMap)
                 sourceRule.makeUpRule(result)
-                result?.let {
-                    result = when (sourceRule.mode) {
-                        Mode.Regex -> AnalyzeByRegex.getElement(
-                            result.toString(),
-                            sourceRule.rule.splitNotBlank("&&")
-                        )
+                result ?: continue
+                val rule = sourceRule.rule
+                result = when (sourceRule.mode) {
+                    Mode.Regex -> AnalyzeByRegex.getElement(
+                        result.toString(),
+                        rule.splitNotBlank("&&")
+                    )
 
-                        Mode.Js -> evalJS(sourceRule.rule, it)
-                        Mode.Json -> getAnalyzeByJSonPath(it).getObject(sourceRule.rule)
-                        Mode.XPath -> getAnalyzeByXPath(it).getElements(sourceRule.rule)
-                        else -> getAnalyzeByJSoup(it).getElements(sourceRule.rule)
-                    }
-                    if (sourceRule.replaceRegex.isNotEmpty()) {
-                        result = replaceRegex(result.toString(), sourceRule)
-                    }
+                    Mode.Js -> evalJS(rule, result)
+                    Mode.Json -> getAnalyzeByJSonPath(result).getObject(rule)
+                    Mode.XPath -> getAnalyzeByXPath(result).getElements(rule)
+                    else -> getAnalyzeByJSoup(result).getElements(rule)
+                }
+                if (sourceRule.replaceRegex.isNotEmpty()) {
+                    result = replaceRegex(result.toString(), sourceRule)
                 }
             }
         }
@@ -368,21 +372,18 @@ class AnalyzeRule(
             result = content
             for (sourceRule in ruleList) {
                 putRule(sourceRule.putMap)
-                result?.let {
-                    result = when (sourceRule.mode) {
-                        Mode.Regex -> AnalyzeByRegex.getElements(
-                            result.toString(),
-                            sourceRule.rule.splitNotBlank("&&")
-                        )
+                result ?: continue
+                val rule = sourceRule.rule
+                result = when (sourceRule.mode) {
+                    Mode.Regex -> AnalyzeByRegex.getElements(
+                        result.toString(),
+                        rule.splitNotBlank("&&")
+                    )
 
-                        Mode.Js -> evalJS(sourceRule.rule, result)
-                        Mode.Json -> getAnalyzeByJSonPath(it).getList(sourceRule.rule)
-                        Mode.XPath -> getAnalyzeByXPath(it).getElements(sourceRule.rule)
-                        else -> getAnalyzeByJSoup(it).getElements(sourceRule.rule)
-                    }
-                    if (sourceRule.replaceRegex.isNotEmpty()) {
-                        result = replaceRegex(result.toString(), sourceRule)
-                    }
+                    Mode.Js -> evalJS(rule, result)
+                    Mode.Json -> getAnalyzeByJSonPath(result).getList(rule)
+                    Mode.XPath -> getAnalyzeByXPath(result).getElements(rule)
+                    else -> getAnalyzeByJSoup(result).getElements(rule)
                 }
             }
         }
@@ -409,9 +410,20 @@ class AnalyzeRule(
         val putMatcher = putPattern.matcher(vRuleStr)
         while (putMatcher.find()) {
             vRuleStr = vRuleStr.replace(putMatcher.group(), "")
-            GSON.fromJsonObject<Map<String, String>>(putMatcher.group(1))
+            val putJsonStr = putMatcher.group(1)
+            val putJson = GSONStrict.fromJsonObject<Map<String, String>>(putJsonStr)
+                .getOrNull()
+            if (putJson != null) {
+                putMap.putAll(putJson)
+                continue
+            }
+            GSON.fromJsonObject<Map<String, String>>(putJsonStr)
                 .getOrNull()
                 ?.let {
+                    if (!loggedNonStandardJSON) {
+                        Debug.log("≡@put 规则 JSON 格式不规范，请改为规范格式")
+                        loggedNonStandardJSON = true
+                    }
                     putMap.putAll(it)
                 }
         }
@@ -423,43 +435,47 @@ class AnalyzeRule(
      */
     private fun replaceRegex(result: String, rule: SourceRule): String {
         if (rule.replaceRegex.isEmpty()) return result
-        var vResult = result
-        vResult = if (rule.replaceFirst) {
+        val replaceRegex = rule.replaceRegex
+        val replacement = rule.replacement
+        val regex = compileRegexCache(replaceRegex)
+        if (rule.replaceFirst) {
             /* ##match##replace### 获取第一个匹配到的结果并进行替换 */
-            kotlin.runCatching {
-                val pattern = Pattern.compile(rule.replaceRegex)
-                val matcher = pattern.matcher(vResult)
-                if (matcher.find()) {
-                    matcher.group(0)!!.replaceFirst(rule.replaceRegex.toRegex(), rule.replacement)
+            if (regex != null) kotlin.runCatching {
+                val pattern = regex.toPattern()
+                val matcher = pattern.matcher(result)
+                return if (matcher.find()) {
+                    matcher.group(0)!!.replaceFirst(regex, replacement)
                 } else {
                     ""
                 }
-            }.getOrElse {
-                rule.replacement
             }
+            return replacement
         } else {
             /* ##match##replace 替换*/
-            kotlin.runCatching {
-                vResult.replace(rule.replaceRegex.toRegex(), rule.replacement)
-            }.getOrElse {
-                vResult.replace(rule.replaceRegex, rule.replacement)
+            if (regex != null) kotlin.runCatching {
+                return result.replace(regex, replacement)
+            }
+            return result.replace(replaceRegex, replacement)
+        }
+    }
+
+    private fun compileRegexCache(regex: String): Regex? {
+        return regexCache.getOrPutLimit(regex, 16) {
+            try {
+                regex.toRegex()
+            } catch (e: Exception) {
+                null
             }
         }
-        return vResult
     }
 
     /**
      * getString 类规则缓存
      */
-    fun splitSourceRuleCacheString(ruleStr: String?): List<SourceRule> {
+    private fun splitSourceRuleCacheString(ruleStr: String?): List<SourceRule> {
         if (ruleStr.isNullOrEmpty()) return emptyList()
-        val cacheRule = stringRuleCache[ruleStr]
-        return if (cacheRule != null) {
-            cacheRule
-        } else {
-            val rules = splitSourceRule(ruleStr)
-            stringRuleCache[ruleStr] = rules
-            rules
+        return stringRuleCache.getOrPut(ruleStr) {
+            splitSourceRule(ruleStr)
         }
     }
 
@@ -500,6 +516,12 @@ class AnalyzeRule(
         }
 
         return ruleList
+    }
+
+    private fun getOrCreateSingleSourceRule(rule: String): List<SourceRule> {
+        return stringRuleCache.getOrPutLimit(rule, 16) {
+            listOf(SourceRule(rule))
+        }
     }
 
     /**
@@ -654,7 +676,8 @@ class AnalyzeRule(
 
                         regType == jsRuleType -> {
                             if (isRule(ruleParam[index])) {
-                                getString(arrayListOf(SourceRule(ruleParam[index]))).let {
+                                val ruleList = getOrCreateSingleSourceRule(ruleParam[index])
+                                getString(ruleList).let {
                                     infoVal.insert(0, it)
                                 }
                             } else {
@@ -664,7 +687,7 @@ class AnalyzeRule(
                                     jsEval is String -> infoVal.insert(0, jsEval)
                                     jsEval is Double && jsEval % 1.0 == 0.0 -> infoVal.insert(
                                         0,
-                                        String.format("%.0f", jsEval)
+                                        String.format(Locale.ROOT, "%.0f", jsEval)
                                     )
 
                                     else -> infoVal.insert(0, jsEval.toString())
@@ -758,12 +781,29 @@ class AnalyzeRule(
             bindings["title"] = chapter?.title
             bindings["src"] = content
             bindings["nextChapterUrl"] = nextChapterUrl
+            bindings["rssArticle"] = rssArticle
         }
-        val scope = RhinoScriptEngine.getRuntimeScope(bindings)
-        source?.getShareScope()?.let {
-            scope.prototype = it
+        val topScope = source?.getShareScope(coroutineContext) ?: topScopeRef?.get()
+        val scope = if (topScope == null) {
+            RhinoScriptEngine.getRuntimeScope(bindings).apply {
+                if (evalJSCallCount++ > 16) {
+                    topScopeRef = WeakReference(prototype)
+                }
+            }
+        } else {
+            bindings.apply {
+                prototype = topScope
+            }
         }
-        return RhinoScriptEngine.eval(jsStr, scope, coroutineContext)
+        val script = compileScriptCache(jsStr)
+        val result = script.eval(scope, coroutineContext)
+        return result
+    }
+
+    private fun compileScriptCache(jsStr: String): CompiledScript {
+        return scriptCache.getOrPutLimit(jsStr, 16) {
+            RhinoScriptEngine.compile(jsStr)
+        }
     }
 
     override fun getSource(): BaseSource? {
@@ -785,15 +825,14 @@ class AnalyzeRule(
             ruleData = book,
             coroutineContext = coroutineContext
         )
-        return runBlocking(coroutineContext) {
-            kotlin.runCatching {
-                analyzeUrl.getStrResponseAwait().body
-            }.onFailure {
-                log("ajax(${urlStr}) error\n${it.stackTraceToString()}")
-                it.printOnDebug()
-            }.getOrElse {
-                it.stackTraceStr
-            }
+        return kotlin.runCatching {
+            analyzeUrl.getStrResponse().body
+        }.onFailure {
+            coroutineContext.ensureActive()
+            log("ajax(${urlStr}) error\n${it.stackTraceToString()}")
+            it.printOnDebug()
+        }.getOrElse {
+            it.stackTraceStr
         }
     }
 
@@ -801,12 +840,13 @@ class AnalyzeRule(
      * 重新获取book
      */
     fun reGetBook() {
+        if (!preUpdateJs) throw NoStackTraceException("只能在 preUpdateJs 中调用")
         val bookSource = source as? BookSource
         val book = book as? Book
         if (bookSource == null || book == null) return
         runBlocking(coroutineContext) {
             withTimeout(1800000) {
-                WebBook.preciseSearchAwait(this, bookSource, book.name, book.author)
+                WebBook.preciseSearchAwait(bookSource, book.name, book.author)
                     .getOrThrow().let {
                         book.bookUrl = it.bookUrl
                         it.variableMap.forEach { entry ->
@@ -819,29 +859,16 @@ class AnalyzeRule(
     }
 
     /**
-     * 刷新详情页
-     */
-    fun refreshBook() {
-        val bookSource = source as? BookSource
-        val book = book as? Book
-        if (bookSource == null || book == null) return
-        runBlocking(coroutineContext) {
-            withTimeout(1800000) {
-                WebBook.getBookInfoAwait(bookSource, book)
-            }
-        }
-    }
-
-    /**
      * 更新tocUrl,有些书源目录url定期更新,可以在js调用更新
      */
     fun refreshTocUrl() {
+        if (!preUpdateJs) throw NoStackTraceException("只能在 preUpdateJs 中调用")
         val bookSource = source as? BookSource
         val book = book as? Book
         if (bookSource == null || book == null) return
         runBlocking(coroutineContext) {
             withTimeout(1800000) {
-                WebBook.getBookInfoAwait(bookSource, book)
+                WebBook.getBookInfoAwait(bookSource, book, false)
             }
         }
     }
@@ -851,6 +878,27 @@ class AnalyzeRule(
         private val evalPattern =
             Pattern.compile("@get:\\{[^}]+?\\}|\\{\\{[\\w\\W]*?\\}\\}", Pattern.CASE_INSENSITIVE)
         private val regexPattern = Pattern.compile("\\$\\d{1,2}")
+
+        fun AnalyzeRule.setCoroutineContext(context: CoroutineContext): AnalyzeRule {
+            coroutineContext = context.minusKey(ContinuationInterceptor)
+            return this
+        }
+
+        fun AnalyzeRule.setRuleData(ruleData: RuleDataInterface?): AnalyzeRule {
+            this.ruleData = ruleData
+            return this
+        }
+
+        fun AnalyzeRule.setNextChapterUrl(nextChapterUrl: String?): AnalyzeRule {
+            this.nextChapterUrl = nextChapterUrl
+            return this
+        }
+
+        fun AnalyzeRule.setChapter(chapter: BookChapter?): AnalyzeRule {
+            this.chapter = chapter
+            return this
+        }
+
     }
 
 }

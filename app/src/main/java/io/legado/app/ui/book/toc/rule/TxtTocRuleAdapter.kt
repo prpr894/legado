@@ -86,7 +86,7 @@ class TxtTocRuleAdapter(context: Context, private val callBack: CallBack) :
             } else {
                 for (i in payloads.indices) {
                     val bundle = payloads[i] as Bundle
-                    bundle.keySet().map {
+                    bundle.keySet().forEach {
                         when (it) {
                             "selected" -> cbSource.isChecked = selected.contains(item)
                             "upName" -> cbSource.text = item.name
@@ -128,6 +128,10 @@ class TxtTocRuleAdapter(context: Context, private val callBack: CallBack) :
         binding.ivMenuMore.setOnClickListener {
             showMenu(it, holder.layoutPosition)
         }
+    }
+
+    override fun onCurrentListChanged() {
+        callBack.upCountView()
     }
 
     private fun showMenu(view: View, position: Int) {

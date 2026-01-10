@@ -16,4 +16,5 @@ package-lock.json
 prpr894.jks
 pwd.properties
 .idea/
-
+# Kotlin 2.0
+.kotlin/

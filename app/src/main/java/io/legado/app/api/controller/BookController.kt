@@ -1,6 +1,9 @@
 package io.legado.app.api.controller
 
+import android.graphics.Bitmap
+import android.graphics.drawable.Drawable
 import androidx.core.graphics.drawable.toBitmap
+import com.bumptech.glide.Glide
 import io.legado.app.api.ReturnData
 import io.legado.app.data.appDb
 import io.legado.app.data.entities.Book
@@ -27,12 +30,15 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import splitties.init.appCtx
 import java.io.File
+import java.util.WeakHashMap
+import java.util.concurrent.TimeUnit
 
 object BookController {
 
     private lateinit var book: Book
     private var bookSource: BookSource? = null
     private var bookUrl: String = ""
+    private val defaultCoverCache by lazy { WeakHashMap<Drawable, Bitmap>() }
 
     /**
      * 书架所有书籍
@@ -63,11 +69,27 @@ object BookController {
     fun getCover(parameters: Map<String, List<String>>): ReturnData {
         val returnData = ReturnData()
         val coverPath = parameters["path"]?.firstOrNull()
-        val ftBitmap = ImageLoader.loadBitmap(appCtx, coverPath).submit()
+        val ftBitmap = ImageLoader.loadBitmap(appCtx, coverPath)
+            .override(84, 112)
+            .centerCrop()
+            .submit()
         return try {
-            returnData.setData(ftBitmap.get())
+            returnData.setData(ftBitmap.get(3, TimeUnit.SECONDS))
         } catch (e: Exception) {
-            returnData.setData(BookCover.defaultDrawable.toBitmap())
+            try {
+                val defaultBitmap = defaultCoverCache.getOrPut(BookCover.defaultDrawable) {
+                    Glide.with(appCtx)
+                        .asBitmap()
+                        .load(BookCover.defaultDrawable.toBitmap())
+                        .override(84, 112)
+                        .centerCrop()
+                        .submit()
+                        .get()
+                }
+                returnData.setData(defaultBitmap)
+            } catch (e: Exception) {
+                returnData.setErrorMsg(e.localizedMessage ?: "getCover error")
+            }
         }
     }
 
@@ -89,7 +111,7 @@ object BookController {
         this.bookUrl = bookUrl
         val bitmap = runBlocking {
             ImageProvider.cacheImage(book, src, bookSource)
-            ImageProvider.getImage(book, src, width)!!
+            ImageProvider.getImage(book, src, width)
         }
         return returnData.setData(bitmap)
     }
@@ -178,7 +200,7 @@ object BookController {
         if (content != null) {
             val contentProcessor = ContentProcessor.get(book.name, book.origin)
             content = runBlocking {
-                contentProcessor.getContent(book, chapter, content!!, includeTitle = false)
+                contentProcessor.getContent(book, chapter, content, includeTitle = false)
                     .toString()
             }
             return returnData.setData(content)

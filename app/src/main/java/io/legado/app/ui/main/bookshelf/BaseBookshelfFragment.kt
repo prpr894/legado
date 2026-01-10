@@ -3,6 +3,7 @@ package io.legado.app.ui.main.bookshelf
 import android.annotation.SuppressLint
 import android.view.Menu
 import android.view.MenuItem
+import androidx.core.view.indices
 import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.LiveData
@@ -28,7 +29,15 @@ import io.legado.app.ui.file.HandleFileContract
 import io.legado.app.ui.main.MainFragmentInterface
 import io.legado.app.ui.main.MainViewModel
 import io.legado.app.ui.widget.dialog.WaitDialog
-import io.legado.app.utils.*
+import io.legado.app.utils.checkByIndex
+import io.legado.app.utils.getCheckedIndex
+import io.legado.app.utils.isAbsUrl
+import io.legado.app.utils.postEvent
+import io.legado.app.utils.readText
+import io.legado.app.utils.sendToClip
+import io.legado.app.utils.showDialogFragment
+import io.legado.app.utils.startActivity
+import io.legado.app.utils.toastOnUi
 
 abstract class BaseBookshelfFragment(layoutId: Int) : VMBaseFragment<BookshelfViewModel>(layoutId),
     MainFragmentInterface {
@@ -149,18 +158,29 @@ abstract class BaseBookshelfFragment(layoutId: Int) : VMBaseFragment<BookshelfVi
                     viewModel.addBookByUrl(it)
                 }
             }
-            noButton()
+            cancelButton()
         }
     }
 
     @SuppressLint("InflateParams")
     fun configBookshelf() {
         alert(titleResource = R.string.bookshelf_layout) {
-            val bookshelfLayout = AppConfig.bookshelfLayout
-            val bookshelfSort = AppConfig.bookshelfSort
+            var bookshelfLayout = AppConfig.bookshelfLayout
+            var bookshelfSort = AppConfig.bookshelfSort
             val alertBinding =
                 DialogBookshelfConfigBinding.inflate(layoutInflater)
                     .apply {
+                        if (AppConfig.bookGroupStyle !in 0..<spGroupStyle.count) {
+                            AppConfig.bookGroupStyle = 0
+                        }
+                        if (bookshelfLayout !in rgLayout.indices) {
+                            bookshelfLayout = 0
+                            AppConfig.bookshelfLayout = 0
+                        }
+                        if (bookshelfSort !in rgSort.indices) {
+                            bookshelfSort = 0
+                            AppConfig.bookshelfSort = 0
+                        }
                         spGroupStyle.setSelection(AppConfig.bookGroupStyle)
                         swShowUnread.isChecked = AppConfig.showUnread
                         swShowLastUpdateTime.isChecked = AppConfig.showLastUpdateTime
@@ -172,9 +192,11 @@ abstract class BaseBookshelfFragment(layoutId: Int) : VMBaseFragment<BookshelfVi
             customView { alertBinding.root }
             okButton {
                 alertBinding.apply {
+                    var notifyMain = false
+                    var recreate = false
                     if (AppConfig.bookGroupStyle != spGroupStyle.selectedItemPosition) {
                         AppConfig.bookGroupStyle = spGroupStyle.selectedItemPosition
-                        postEvent(EventBus.NOTIFY_MAIN, false)
+                        notifyMain = true
                     }
                     if (AppConfig.showUnread != swShowUnread.isChecked) {
                         AppConfig.showUnread = swShowUnread.isChecked
@@ -198,7 +220,17 @@ abstract class BaseBookshelfFragment(layoutId: Int) : VMBaseFragment<BookshelfVi
                     }
                     if (bookshelfLayout != rgLayout.getCheckedIndex()) {
                         AppConfig.bookshelfLayout = rgLayout.getCheckedIndex()
+                        if (AppConfig.bookshelfLayout == 0) {
+                            activityViewModel.booksGridRecycledViewPool.clear()
+                        } else {
+                            activityViewModel.booksListRecycledViewPool.clear()
+                        }
+                        recreate = true
+                    }
+                    if (recreate) {
                         postEvent(EventBus.RECREATE, "")
+                    } else if (notifyMain) {
+                        postEvent(EventBus.NOTIFY_MAIN, false)
                     }
                 }
             }
@@ -218,7 +250,7 @@ abstract class BaseBookshelfFragment(layoutId: Int) : VMBaseFragment<BookshelfVi
                     viewModel.importBookshelf(it, groupId)
                 }
             }
-            noButton()
+            cancelButton()
             neutralButton(R.string.select_file) {
                 importBookshelf.launch {
                     mode = HandleFileContract.FILE

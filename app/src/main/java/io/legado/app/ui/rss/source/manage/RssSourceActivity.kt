@@ -4,9 +4,7 @@ import android.annotation.SuppressLint
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
-import android.view.MotionEvent
 import android.view.SubMenu
-import android.widget.EditText
 import androidx.activity.viewModels
 import androidx.appcompat.widget.PopupMenu
 import androidx.appcompat.widget.SearchView
@@ -33,9 +31,7 @@ import io.legado.app.ui.widget.recycler.ItemTouchCallback
 import io.legado.app.ui.widget.recycler.VerticalDivider
 import io.legado.app.utils.ACache
 import io.legado.app.utils.applyTint
-import io.legado.app.utils.cnCompare
 import io.legado.app.utils.dpToPx
-import io.legado.app.utils.hideSoftInput
 import io.legado.app.utils.isAbsUrl
 import io.legado.app.utils.launch
 import io.legado.app.utils.readText
@@ -47,6 +43,7 @@ import io.legado.app.utils.showHelp
 import io.legado.app.utils.splitNotBlank
 import io.legado.app.utils.startActivity
 import io.legado.app.utils.toastOnUi
+import io.legado.app.utils.transaction
 import io.legado.app.utils.viewbindingdelegate.viewBinding
 import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.Job
@@ -72,7 +69,7 @@ class RssSourceActivity : VMBaseActivity<ActivityRssSourceBinding, RssSourceView
         binding.titleBar.findViewById(R.id.search_view)
     }
     private var sourceFlowJob: Job? = null
-    private var groups = hashSetOf<String>()
+    private var groups = arrayListOf<String>()
     private var groupMenu: SubMenu? = null
     private val qrCodeResult = registerForActivityResult(QrCodeResult()) {
         it ?: return@registerForActivityResult
@@ -117,18 +114,6 @@ class RssSourceActivity : VMBaseActivity<ActivityRssSourceBinding, RssSourceView
         initSelectActionBar()
     }
 
-    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-        if (ev.action == MotionEvent.ACTION_DOWN) {
-            currentFocus?.let {
-                if (it is EditText) {
-                    it.clearFocus()
-                    it.hideSoftInput()
-                }
-            }
-        }
-        return super.dispatchTouchEvent(ev)
-    }
-
     override fun onCompatCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.rss_source, menu)
         return super.onCompatCreateOptionsMenu(menu)
@@ -147,6 +132,7 @@ class RssSourceActivity : VMBaseActivity<ActivityRssSourceBinding, RssSourceView
                 mode = HandleFileContract.FILE
                 allowExtensions = arrayOf("txt", "json")
             }
+
             R.id.menu_import_onLine -> showImportDialog()
             R.id.menu_import_qr -> qrCodeResult.launch()
             R.id.menu_group_manage -> showDialogFragment<GroupManageDialog>()
@@ -154,15 +140,19 @@ class RssSourceActivity : VMBaseActivity<ActivityRssSourceBinding, RssSourceView
             R.id.menu_enabled_group -> {
                 searchView.setQuery(getString(R.string.enabled), true)
             }
+
             R.id.menu_disabled_group -> {
                 searchView.setQuery(getString(R.string.disabled), true)
             }
+
             R.id.menu_group_login -> {
                 searchView.setQuery(getString(R.string.need_login), true)
             }
+
             R.id.menu_group_null -> {
                 searchView.setQuery(getString(R.string.no_group), true)
             }
+
             R.id.menu_help -> showHelp("SourceMRssHelp")
             else -> if (item.groupId == R.id.source_group) {
                 searchView.setQuery("group:${item.title}", true)
@@ -182,13 +172,16 @@ class RssSourceActivity : VMBaseActivity<ActivityRssSourceBinding, RssSourceView
             R.id.menu_export_selection -> viewModel.saveToFile(adapter.selection) { file ->
                 exportResult.launch {
                     mode = HandleFileContract.EXPORT
-                    fileData = HandleFileContract.FileData("exportRssSource.json", file, "application/json")
+                    fileData = HandleFileContract.FileData(
+                        "exportRssSource.json", file, "application/json"
+                    )
                 }
             }
 
             R.id.menu_share_source -> viewModel.saveToFile(adapter.selection) {
                 share(it)
             }
+
             R.id.menu_check_selected_interval -> adapter.checkSelectedInterval()
         }
         return true
@@ -308,11 +301,9 @@ class RssSourceActivity : VMBaseActivity<ActivityRssSourceBinding, RssSourceView
         }
     }
 
-    private fun upGroupMenu() = groupMenu?.let { menu ->
+    private fun upGroupMenu() = groupMenu?.transaction { menu ->
         menu.removeGroup(R.id.source_group)
-        groups.sortedWith { o1, o2 ->
-            o1.cnCompare(o2)
-        }.map {
+        groups.forEach {
             menu.add(R.id.source_group, Menu.NONE, Menu.NONE, it)
         }
     }
@@ -332,16 +323,20 @@ class RssSourceActivity : VMBaseActivity<ActivityRssSourceBinding, RssSourceView
                 searchKey == getString(R.string.disabled) -> {
                     appDb.rssSourceDao.flowDisabled()
                 }
+
                 searchKey == getString(R.string.need_login) -> {
                     appDb.rssSourceDao.flowLogin()
                 }
+
                 searchKey == getString(R.string.no_group) -> {
                     appDb.rssSourceDao.flowNoGroup()
                 }
+
                 searchKey.startsWith("group:") -> {
                     val key = searchKey.substringAfter("group:")
                     appDb.rssSourceDao.flowGroupSearch(key)
                 }
+
                 else -> {
                     appDb.rssSourceDao.flowSearch(searchKey)
                 }
@@ -381,7 +376,7 @@ class RssSourceActivity : VMBaseActivity<ActivityRssSourceBinding, RssSourceView
             okButton {
                 val text = alertBinding.editView.text?.toString()
                 text?.let {
-                    if (!cacheUrls.contains(it)) {
+                    if (it.isAbsUrl() && !cacheUrls.contains(it)) {
                         cacheUrls.add(0, it)
                         aCache.put(importRecordKey, cacheUrls.joinToString(","))
                     }

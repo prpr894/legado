@@ -11,9 +11,9 @@ import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.LinearLayout
-import androidx.fragment.app.DialogFragment
 import androidx.preference.Preference
 import io.legado.app.R
+import io.legado.app.base.BasePrefDialogFragment
 import io.legado.app.constant.EventBus
 import io.legado.app.constant.PreferKey
 import io.legado.app.help.config.AppConfig
@@ -25,12 +25,14 @@ import io.legado.app.model.ReadBook
 import io.legado.app.ui.book.read.ReadBookActivity
 import io.legado.app.ui.book.read.page.provider.ChapterProvider
 import io.legado.app.ui.widget.number.NumberPickerDialog
+import io.legado.app.utils.canvasrecorder.CanvasRecorderFactory
 import io.legado.app.utils.dpToPx
 import io.legado.app.utils.getPrefBoolean
 import io.legado.app.utils.postEvent
+import io.legado.app.utils.removePref
 import io.legado.app.utils.setEdgeEffectColor
 
-class MoreConfigDialog : DialogFragment() {
+class MoreConfigDialog : BasePrefDialogFragment() {
     private val readPreferTag = "readPreferenceFragment"
 
     override fun onStart() {
@@ -83,6 +85,10 @@ class MoreConfigDialog : DialogFragment() {
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
             addPreferencesFromResource(R.xml.pref_config_read)
             upPreferenceSummary(PreferKey.pageTouchSlop, slopSquare.toString())
+            if (!CanvasRecorderFactory.isSupport) {
+                removePref(PreferKey.optimizeRender)
+                preferenceScreen.removePreferenceRecursively(PreferKey.optimizeRender)
+            }
         }
 
         override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -112,12 +118,12 @@ class MoreConfigDialog : DialogFragment() {
                 PreferKey.readBodyToLh -> activity?.recreate()
                 PreferKey.hideStatusBar -> {
                     ReadBookConfig.hideStatusBar = getPrefBoolean(PreferKey.hideStatusBar)
-                    postEvent(EventBus.UP_CONFIG, arrayListOf(0))
+                    postEvent(EventBus.UP_CONFIG, arrayListOf(0, 2))
                 }
 
                 PreferKey.hideNavigationBar -> {
                     ReadBookConfig.hideNavigationBar = getPrefBoolean(PreferKey.hideNavigationBar)
-                    postEvent(EventBus.UP_CONFIG, arrayListOf(0))
+                    postEvent(EventBus.UP_CONFIG, arrayListOf(0, 2))
                 }
 
                 PreferKey.keepLight -> postEvent(key, true)
@@ -162,6 +168,10 @@ class MoreConfigDialog : DialogFragment() {
                     ChapterProvider.upStyle()
                     ReadBook.callBack?.upPageAnim(true)
                     ReadBook.loadContent(false)
+                }
+
+                PreferKey.paddingDisplayCutouts -> {
+                    postEvent(EventBus.UP_CONFIG, arrayListOf(2))
                 }
             }
         }

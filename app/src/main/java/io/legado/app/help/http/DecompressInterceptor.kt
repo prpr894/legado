@@ -2,14 +2,16 @@ package io.legado.app.help.http
 
 import okhttp3.Interceptor
 import okhttp3.Response
+import okhttp3.ResponseBody
 import okhttp3.ResponseBody.Companion.asResponseBody
 import okhttp3.internal.http.promisesBody
 import okio.buffer
 import okio.source
 import java.util.zip.GZIPInputStream
+import java.util.zip.Inflater
 import java.util.zip.InflaterInputStream
 
-object DecompressInterceptor: Interceptor {
+object DecompressInterceptor : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()
         val requestBuilder = request.newBuilder()
@@ -23,14 +25,14 @@ object DecompressInterceptor: Interceptor {
         val response = chain.proceed(requestBuilder.build())
         val body = response.body
 
-        if (!transparentDecompress || !response.promisesBody() || body == null) {
+        if (!transparentDecompress || !response.promisesBody() || body == ResponseBody.EMPTY) {
             return response
         }
 
         val encoding = response.header("Content-Encoding")?.lowercase()
         val source = when (encoding) {
             "gzip" -> GZIPInputStream(body.byteStream()).source().buffer()
-            "deflate" -> InflaterInputStream(body.byteStream()).source().buffer()
+            "deflate" -> InflaterInputStream(body.byteStream(), Inflater(true)).source().buffer()
             else -> return response
         }
 

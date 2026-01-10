@@ -5,9 +5,7 @@ package io.legado.app.ui.main
 import android.os.Bundle
 import android.text.format.DateUtils
 import android.view.MenuItem
-import android.view.MotionEvent
 import android.view.ViewGroup
-import android.widget.EditText
 import androidx.activity.addCallback
 import androidx.activity.viewModels
 import androidx.core.view.postDelayed
@@ -43,11 +41,18 @@ import io.legado.app.ui.main.explore.ExploreFragment
 import io.legado.app.ui.main.my.MyFragment
 import io.legado.app.ui.main.rss.RssFragment
 import io.legado.app.ui.widget.dialog.TextDialog
-import io.legado.app.utils.*
+import io.legado.app.utils.isCreated
+import io.legado.app.utils.navigationBarHeight
+import io.legado.app.utils.observeEvent
+import io.legado.app.utils.setEdgeEffectColor
+import io.legado.app.utils.setOnApplyWindowInsetsListenerCompat
+import io.legado.app.utils.showDialogFragment
+import io.legado.app.utils.toastOnUi
 import io.legado.app.utils.viewbindingdelegate.viewBinding
 import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import splitties.views.bottomPadding
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 
@@ -72,6 +77,7 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
     private var pagePosition = 0
     private val fragmentMap = hashMapOf<Int, Fragment>()
     private var bottomMenuCount = 4
+    private val EXIT_INTERVAL = 2000L
     private val realPositions = arrayOf(idBookshelf, idExplore, idRss, idMy)
     private val adapter by lazy {
         TabFragmentPageAdapter(supportFragmentManager)
@@ -82,15 +88,7 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
 
     override fun onActivityCreated(savedInstanceState: Bundle?) {
         upBottomMenu()
-        binding.run {
-            viewPagerMain.setEdgeEffectColor(primaryColor)
-            viewPagerMain.offscreenPageLimit = 3
-            viewPagerMain.adapter = adapter
-            viewPagerMain.addOnPageChangeListener(PageChangeCallback())
-            bottomNavigationView.elevation = elevation
-            bottomNavigationView.setOnNavigationItemSelectedListener(this@MainActivity)
-            bottomNavigationView.setOnNavigationItemReselectedListener(this@MainActivity)
-        }
+        initView()
         upHomePage()
         onBackPressedDispatcher.addCallback(this) {
             if (pagePosition != 0) {
@@ -102,7 +100,7 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
                     return@addCallback
                 }
             }
-            if (System.currentTimeMillis() - exitTime > 2000) {
+            if (System.currentTimeMillis() - exitTime > EXIT_INTERVAL) {
                 toastOnUi(R.string.double_click_exit)
                 exitTime = System.currentTimeMillis()
             } else {
@@ -112,23 +110,6 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
                     moveTaskToBack(true)
                 }
             }
-        }
-    }
-
-    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-        if (ev.action == MotionEvent.ACTION_DOWN) {
-            currentFocus?.let {
-                if (it is EditText) {
-                    it.clearFocus()
-                    it.hideSoftInput()
-                }
-            }
-        }
-        return try {
-            super.dispatchTouchEvent(ev)
-        } catch (e: IllegalArgumentException) {
-            e.printStackTrace()
-            false
         }
     }
 
@@ -194,6 +175,24 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
         }
     }
 
+    private fun initView() = binding.run {
+        viewPagerMain.setEdgeEffectColor(primaryColor)
+        viewPagerMain.offscreenPageLimit = 3
+        viewPagerMain.adapter = adapter
+        viewPagerMain.addOnPageChangeListener(PageChangeCallback())
+        bottomNavigationView.elevation = elevation
+        bottomNavigationView.setOnNavigationItemSelectedListener(this@MainActivity)
+        bottomNavigationView.setOnNavigationItemReselectedListener(this@MainActivity)
+        if (AppConfig.isEInkMode) {
+            bottomNavigationView.setBackgroundResource(R.drawable.bg_eink_border_top)
+        }
+        bottomNavigationView.setOnApplyWindowInsetsListenerCompat { view, windowInsets ->
+            val height = windowInsets.navigationBarHeight
+            view.bottomPadding = height
+            windowInsets.inset(0, 0, 0, height)
+        }
+    }
+
     /**
      * 用户隐私与协议
      */
@@ -204,10 +203,6 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
         }
         val privacyPolicy = String(assets.open("privacyPolicy.md").readBytes())
         alert(getString(R.string.privacy_policy), privacyPolicy) {
-            noButton {
-                finish()
-                block.resume(false)
-            }
             positiveButton(R.string.agree) {
                 LocalConfig.privacyPolicyOk = true
                 block.resume(true)
@@ -291,6 +286,9 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
      * 备份同步
      */
     private fun backupSync() {
+        if (!AppConfig.autoCheckNewBackup) {
+            return
+        }
         lifecycleScope.launch {
             val lastBackupFile =
                 withContext(IO) { AppWebDav.lastBackUp().getOrNull() } ?: return@launch
@@ -446,7 +444,11 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
         }
 
         override fun instantiateItem(container: ViewGroup, position: Int): Any {
-            val fragment = super.instantiateItem(container, position) as Fragment
+            var fragment = super.instantiateItem(container, position) as Fragment
+            if (fragment.isCreated && getItemPosition(fragment) == POSITION_NONE) {
+                destroyItem(container, position, fragment)
+                fragment = super.instantiateItem(container, position) as Fragment
+            }
             fragmentMap[getId(position)] = fragment
             return fragment
         }

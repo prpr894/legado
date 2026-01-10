@@ -281,7 +281,7 @@ dependencies {
     //Svg
     implementation(libs.androidsvg)
     //Glide svg plugin
-    implementation(libs.glide.svg)
+//    implementation(libs.glide.svg)
 
     //webServer
     implementation(libs.nanohttpd.nanohttpd)
